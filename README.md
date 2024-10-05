@@ -5,7 +5,7 @@ It's a DoTween wrapper for configuring simple animations in the inspector (mainl
 
 ![Image alt](https://github.com/LuchunPen/TweenAnimator/blob/master/Pic2.gif)
 
-Support parrallel and sequence animations in any combinations.
+Supports parrallel and sequence animations in any combinations. All of the animations are inherited from AnimationBase class.
 
 ![Image alt](https://github.com/LuchunPen/TweenAnimator/blob/master/Pic1.png)
 

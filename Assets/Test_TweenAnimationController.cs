@@ -12,6 +12,11 @@ public class Test_TweenAnimationController : MonoBehaviour
             _anim.ResetAnimation();
             _anim.PlayAnimation(OnComplete);
         }
+
+        if (Input.GetKey(KeyCode.E))
+        {
+            _anim.StopAnimation();
+        }
     }
 
     private void OnComplete()

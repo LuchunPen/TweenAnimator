@@ -17,6 +17,7 @@ public class TweenAnimationScale : TweenAnimation
     [SerializeField] private Transform _trans;
     [SerializeField] private float _startValue;
     [SerializeField] private float _endValue;
+    
     protected override void UpdateAnimator()
     {
         float scale =  _startValue + (_tweenerValue * (_endValue - _startValue));

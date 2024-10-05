@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using DG.Tweening;
 
-namespace LcpGames
+namespace Nano3
 {
     public abstract class TweenAnimation : AnimationBase
     {

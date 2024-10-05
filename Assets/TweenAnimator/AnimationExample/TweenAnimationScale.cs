@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace LcpGames 
+namespace Nano3 
 {
     public class TweenAnimationScale : TweenAnimation
     {

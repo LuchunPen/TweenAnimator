@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-namespace LcpGames
+namespace Nano3
 {
     public class AnimationGroupParallel : AnimationBase
     {

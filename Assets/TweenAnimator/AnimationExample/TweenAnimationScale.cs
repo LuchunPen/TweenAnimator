@@ -11,7 +11,7 @@ namespace Nano3
         [SerializeField] private float _endValue;
         protected override void UpdateAnimator()
         {
-            float scale =  _startValue + (_tweenerValue * (_endValue - _startValue));
+            float scale = _startValue + (_tweenerValue * (_endValue - _startValue));
             _trans.localScale = new Vector3(scale, scale, scale);
         }
     }

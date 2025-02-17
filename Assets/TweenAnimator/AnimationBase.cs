@@ -18,5 +18,6 @@ namespace Nano3
         public abstract void PlayAnimation(Action onComplete = null);
         public abstract void StopAnimation();
         public abstract void ResetAnimation();
+        public abstract void SetFinishState(Action onComplete = null);
     }
 }

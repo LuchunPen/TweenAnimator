@@ -33,6 +33,16 @@ namespace Nano3
             CompleteInvokation(onComplete);
         }
 
+        public override void SetFinishState(Action onComplete = null)
+        {
+            for (int i = 0; i < _animations.Length; i++)
+            {
+                _animations[i].SetFinishState();
+            }
+
+            CompleteInvokation(onComplete);
+        }
+
         protected void CompleteInvokation(Action onComplete)
         {
             _state = AnimationState.Complete;

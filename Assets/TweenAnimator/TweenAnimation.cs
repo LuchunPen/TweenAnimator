@@ -43,6 +43,14 @@ namespace Nano3
             _state = AnimationState.Stop;
         }
 
+        public override void SetFinishState(Action onComplete = null)
+        {
+            if (_tw != null) { _tw.Kill(); }
+
+            _tweenerValue = 1;
+            UpdateAnimator();
+            CompleteInvocation(onComplete);
+        }
 
         public override void ResetAnimation()
         {

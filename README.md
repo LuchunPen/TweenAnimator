@@ -2,7 +2,7 @@
 
 It's a DoTween wrapper for configuring simple animations in the inspector (mainly designed for UI)
 
-# Install via UPM (with Package Manager UI)
+### Install via UPM (with Package Manager UI)
 Click Window > Package Manager to open Package Manager UI.
 Click + > Add package from git URL... and input the repository URL: https://github.com/LuchunPen/TweenAnimator.git?path=Packages/src
 

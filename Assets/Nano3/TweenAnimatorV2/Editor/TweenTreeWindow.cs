@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,6 +19,8 @@ namespace Nano3.TweenAnimator
         private const string StatePropName = "_state";
         private const string PlayOnStartPropName = "_playOnStart";
         private const string UnscaledTimePropName = "_useUnscaledTime";
+        private const string LoopModePropName = "_loopMode";
+        private const string LoopsPropName = "_loops";
         private const float IndentWidth = 14f;
         private const float RowHeight = 18f;
 
@@ -182,6 +186,25 @@ namespace Nano3.TweenAnimator
             ToggleLeftProperty(UnscaledTimePropName,
                 new GUIContent("Use Unscaled Time", "Keep playing while Time.timeScale = 0 (gameplay pause). Applies to the whole tree."),
                 150f);
+
+            GUILayout.Space(12f);
+
+            SerializedProperty loopMode = _serializedObject.FindProperty(LoopModePropName);
+            if (loopMode != null)
+            {
+                GUILayout.Label("Loop", GUILayout.Width(34f));
+                EditorGUILayout.PropertyField(loopMode, GUIContent.none, GUILayout.Width(90f));
+
+                if (loopMode.enumValueIndex != 0) // 0 == TweenLoopMode.None
+                {
+                    SerializedProperty loops = _serializedObject.FindProperty(LoopsPropName);
+                    if (loops != null)
+                    {
+                        GUILayout.Label(new GUIContent("×", "How many extra times to repeat. -1 = infinite."), GUILayout.Width(12f));
+                        EditorGUILayout.PropertyField(loops, GUIContent.none, GUILayout.Width(46f));
+                    }
+                }
+            }
 
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
@@ -439,6 +462,13 @@ namespace Nano3.TweenAnimator
             }
 
             menu.AddSeparator(string.Empty);
+
+            if (parentList != null)
+            {
+                menu.AddItem(new GUIContent("Duplicate"), false,
+                    () => PerformChange(so => DuplicateNode(so, parentPath, capturedIndex)));
+            }
+
             menu.AddItem(new GUIContent("Delete"), false, () => PerformChange(so =>
             {
                 DeleteNode(so, parentPath, capturedIndex);
@@ -446,6 +476,53 @@ namespace Nano3.TweenAnimator
             }));
 
             menu.ShowAsContext();
+        }
+
+        private static void DuplicateNode(SerializedObject so, string parentPath, int index)
+        {
+            if (string.IsNullOrEmpty(parentPath) || index < 0) { return; }
+
+            SerializedProperty list = so.FindProperty(parentPath);
+            if (list == null || index >= list.arraySize) { return; }
+
+            object source = list.GetArrayElementAtIndex(index).managedReferenceValue;
+            object clone = DeepClone(source);
+
+            // Insert the clone directly after the source.
+            list.InsertArrayElementAtIndex(index);
+            list.GetArrayElementAtIndex(index).managedReferenceValue = clone;
+            list.MoveArrayElement(index, index + 1);
+        }
+
+        /// <summary>
+        /// Deep-copies a node. Flat serialized data (values, Object references, TweenData,
+        /// UnityEvents) is cloned via EditorJsonUtility; the nested [SerializeReference] child
+        /// list of groups is rebuilt recursively so subtypes are preserved.
+        /// </summary>
+        private static object DeepClone(object source)
+        {
+            if (source == null) { return null; }
+
+            Type type = source.GetType();
+            object clone = Activator.CreateInstance(type);
+            EditorJsonUtility.FromJsonOverwrite(EditorJsonUtility.ToJson(source), clone);
+
+            FieldInfo nodesField = type.GetField(NodesPropName, BindingFlags.NonPublic | BindingFlags.Instance);
+            if (nodesField != null && typeof(IList).IsAssignableFrom(nodesField.FieldType))
+            {
+                IList sourceList = nodesField.GetValue(source) as IList;
+                IList newList = (IList)Activator.CreateInstance(nodesField.FieldType);
+                if (sourceList != null)
+                {
+                    foreach (object child in sourceList)
+                    {
+                        newList.Add(DeepClone(child));
+                    }
+                }
+                nodesField.SetValue(clone, newList);
+            }
+
+            return clone;
         }
 
         private static void AddChild(SerializedObject so, string groupPath, Type type)

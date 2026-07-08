@@ -1,0 +1,81 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Nano3.TweenAnimator
+{
+    /// <summary>
+    /// Plays child nodes one after another. Each child starts only after the previous
+    /// one completes. Orchestrated via completion callbacks (no coroutines).
+    /// </summary>
+    [Serializable]
+    public class TweenSequence : TweenNode
+    {
+        [SerializeReference] protected List<TweenNode> _nodes = new List<TweenNode>();
+
+        public override void Init()
+        {
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                _nodes[i].Init();
+            }
+        }
+
+        public override void Play(Action onComplete = null)
+        {
+            if (_state == TweenState.Play) { return; }
+
+            _state = TweenState.Play;
+            PlayFrom(0, onComplete);
+        }
+
+        private void PlayFrom(int index, Action onComplete)
+        {
+            // Aborted by Stop/Reset while a child was running.
+            if (_state != TweenState.Play) { return; }
+
+            if (index >= _nodes.Count)
+            {
+                Complete(onComplete);
+                return;
+            }
+
+            _nodes[index].Play(() => PlayFrom(index + 1, onComplete));
+        }
+
+        private void Complete(Action onComplete)
+        {
+            _state = TweenState.Complete;
+            onComplete?.Invoke();
+        }
+
+        public override void SetFinishState(Action onComplete = null)
+        {
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                _nodes[i].SetFinishState();
+            }
+
+            _state = TweenState.Complete;
+            onComplete?.Invoke();
+        }
+
+        public override void Stop()
+        {
+            _state = TweenState.Stop;
+            for (int i = _nodes.Count - 1; i >= 0; i--)
+            {
+                _nodes[i].Stop();
+            }
+        }
+
+        public override void Reset()
+        {
+            _state = TweenState.Stop;
+            for (int i = _nodes.Count - 1; i >= 0; i--)
+            {
+                _nodes[i].Reset();
+            }
+        }
+    }
+}

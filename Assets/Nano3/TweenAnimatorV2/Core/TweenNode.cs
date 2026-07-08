@@ -15,6 +15,20 @@ namespace Nano3.TweenAnimator
         public TweenState State { get { return _state; } }
 
         /// <summary>
+        /// When true the node's tween ignores Time.timeScale (plays during a timeScale=0 pause).
+        /// Pushed down from the player; NOT serialized (runtime-only). Groups forward it to children.
+        /// </summary>
+        protected bool _useUnscaledTime;
+
+        /// <summary>
+        /// Propagate the unscaled-time mode into this node (and, for groups, all descendants).
+        /// </summary>
+        public virtual void SetUnscaledTime(bool value)
+        {
+            _useUnscaledTime = value;
+        }
+
+        /// <summary>
         /// Called once by the player before the first playback (equivalent of MonoBehaviour.Start).
         /// Groups forward this to their children. Override to cache initial values.
         /// </summary>

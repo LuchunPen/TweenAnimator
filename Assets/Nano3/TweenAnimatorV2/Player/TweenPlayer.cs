@@ -12,14 +12,19 @@ namespace Nano3.TweenAnimator
     {
         [SerializeReference] private TweenNode _root;
         [SerializeField] private bool _playOnStart;
+        [Tooltip("Play using unscaled time, so the animation keeps running while Time.timeScale = 0 " +
+                 "(e.g. a gameplay pause). Propagates to every node in the tree.")]
+        [SerializeField] private bool _useUnscaledTime;
 
         public TweenNode Root { get { return _root; } }
         public bool PlayOnStart { get { return _playOnStart; } set { _playOnStart = value; } }
+        public bool UseUnscaledTime { get { return _useUnscaledTime; } set { _useUnscaledTime = value; } }
 
         private void Start()
         {
             if (_root == null) { return; }
 
+            _root.SetUnscaledTime(_useUnscaledTime);
             _root.Init();
             if (_playOnStart) { Play(); }
         }
@@ -27,6 +32,8 @@ namespace Nano3.TweenAnimator
         public void Play(Action onComplete = null)
         {
             if (_root == null) { return; }
+
+            _root.SetUnscaledTime(_useUnscaledTime);
             _root.Play(onComplete);
         }
 

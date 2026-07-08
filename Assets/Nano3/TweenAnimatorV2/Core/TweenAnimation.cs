@@ -27,6 +27,7 @@ namespace Nano3.TweenAnimator
             _tw = DOTween.To(() => _value, x => _value = x, 1f, _tween.Duration)
                 .SetEase(_tween.Ease, _tween.Amplitude, _tween.Period)
                 .SetDelay(_tween.Delay)
+                .SetUpdate(_useUnscaledTime)
                 .OnUpdate(Apply)
                 .OnComplete(() => Complete(onComplete));
 

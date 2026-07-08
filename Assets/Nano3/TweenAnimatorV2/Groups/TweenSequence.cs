@@ -13,6 +13,15 @@ namespace Nano3.TweenAnimator
     {
         [SerializeReference] protected List<TweenNode> _nodes = new List<TweenNode>();
 
+        public override void SetUnscaledTime(bool value)
+        {
+            base.SetUnscaledTime(value);
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                _nodes[i].SetUnscaledTime(value);
+            }
+        }
+
         public override void Init()
         {
             for (int i = 0; i < _nodes.Count; i++)

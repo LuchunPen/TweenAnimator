@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -99,34 +98,15 @@ namespace Nano3.TweenAnimator
             object value = property.managedReferenceValue;
             if (value == null) { return new GUIContent("(None)"); }
 
-            Type type = value.GetType();
-            TweenNodeMenuAttribute menu = type.GetCustomAttribute<TweenNodeMenuAttribute>();
-            if (menu != null && !string.IsNullOrEmpty(menu.Path))
-            {
-                int slash = menu.Path.LastIndexOf('/');
-                return new GUIContent(slash >= 0 ? menu.Path.Substring(slash + 1) : menu.Path);
-            }
-
-            return new GUIContent(ObjectNames.NicifyVariableName(type.Name));
+            return new GUIContent(TweenNodeTypeMenu.GetDisplayName(value.GetType()));
         }
 
         private static void ShowTypeMenu(SerializedProperty property)
         {
-            GenericMenu menu = new GenericMenu();
             SerializedObject serializedObject = property.serializedObject;
             string path = property.propertyPath;
-            bool isNull = property.managedReferenceValue == null;
 
-            menu.AddItem(new GUIContent("(None)"), isNull, () => AssignType(serializedObject, path, null));
-            menu.AddSeparator(string.Empty);
-
-            foreach (Type type in GetNodeTypes())
-            {
-                Type captured = type;
-                menu.AddItem(new GUIContent(GetMenuPath(type)), false, () => AssignType(serializedObject, path, captured));
-            }
-
-            menu.ShowAsContext();
+            TweenNodeTypeMenu.Show(true, type => AssignType(serializedObject, path, type));
         }
 
         private static void AssignType(SerializedObject serializedObject, string path, Type type)
@@ -138,32 +118,6 @@ namespace Nano3.TweenAnimator
             property.isExpanded = true;
 
             serializedObject.ApplyModifiedProperties();
-        }
-
-        private static List<Type> GetNodeTypes()
-        {
-            List<Type> types = new List<Type>();
-
-            foreach (Type type in TypeCache.GetTypesDerivedFrom<TweenNode>())
-            {
-                if (type.IsAbstract || type.IsGenericType || !type.IsClass) { continue; }
-                types.Add(type);
-            }
-
-            types.Sort((a, b) => string.Compare(GetMenuPath(a), GetMenuPath(b), StringComparison.Ordinal));
-            return types;
-        }
-
-        private static string GetMenuPath(Type type)
-        {
-            TweenNodeMenuAttribute menu = type.GetCustomAttribute<TweenNodeMenuAttribute>();
-            if (menu != null && !string.IsNullOrEmpty(menu.Path))
-            {
-                return menu.Path;
-            }
-
-            string category = typeof(TweenAnimation).IsAssignableFrom(type) ? "Animations" : "Groups";
-            return category + "/" + ObjectNames.NicifyVariableName(type.Name);
         }
     }
 }

@@ -1,0 +1,14 @@
+{
+    "name": "Nano3.TweenAnimator",
+    "rootNamespace": "Nano3.TweenAnimator",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

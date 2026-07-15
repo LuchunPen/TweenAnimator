@@ -21,8 +21,12 @@ namespace Nano3.TweenAnimator
         private const string UnscaledTimePropName = "_useUnscaledTime";
         private const string LoopModePropName = "_loopMode";
         private const string LoopsPropName = "_loops";
+        private const string RootFieldName = "_root";
+        private const string DragDataKey = "TweenTreeNodeDrag";
         private const float IndentWidth = 14f;
         private const float RowHeight = 18f;
+
+        private enum DropZone { Before, After, Inside }
 
         private TweenPlayer _target;
         private SerializedObject _serializedObject;
@@ -40,6 +44,11 @@ namespace Nano3.TweenAnimator
         // Structural edits are deferred until after the tree is drawn to avoid mutating the
         // SerializedObject mid-layout.
         private Action _pendingChange;
+
+        // Drag-and-drop reorder state.
+        private string _dragPath;                 // node being dragged (candidate + active)
+        private string _dropTargetPath;           // row currently hovered as a drop target
+        private DropZone _dropZone;
 
         [MenuItem("Window/Nano3/Tween Tree Editor")]
         public static void Open()
@@ -309,15 +318,8 @@ namespace Nano3.TweenAnimator
             string label = GetNodeLabel(nodeProp, nodes);
             GUI.Label(labelRect, label);
 
-            if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
-            {
-                Select(nodeProp, parentList, index);
-                if (Event.current.button == 1)
-                {
-                    ShowRowContextMenu(nodeProp, parentList, index, isGroup);
-                }
-                Event.current.Use();
-            }
+            HandleRowEvents(rowRect, nodeProp, parentList, index, isGroup);
+            DrawDropIndicator(rowRect, nodeProp.propertyPath);
 
             if (isGroup && nodeProp.isExpanded)
             {
@@ -326,6 +328,244 @@ namespace Nano3.TweenAnimator
                     DrawNodeRow(nodes.GetArrayElementAtIndex(i), depth + 1, nodes, i);
                 }
             }
+        }
+
+        private void HandleRowEvents(Rect rowRect, SerializedProperty nodeProp, SerializedProperty parentList, int index, bool isGroup)
+        {
+            Event e = Event.current;
+            bool over = rowRect.Contains(e.mousePosition);
+            string path = nodeProp.propertyPath;
+
+            switch (e.type)
+            {
+                case EventType.MouseDown:
+                    if (over)
+                    {
+                        Select(nodeProp, parentList, index);
+                        if (e.button == 1)
+                        {
+                            ShowRowContextMenu(nodeProp, parentList, index, isGroup);
+                            e.Use();
+                        }
+                        else if (e.button == 0)
+                        {
+                            _dragPath = path; // candidate; a real drag starts on MouseDrag
+                        }
+                        Repaint();
+                    }
+                    break;
+
+                case EventType.MouseDrag:
+                    if (over && _dragPath == path)
+                    {
+                        DragAndDrop.PrepareStartDrag();
+                        DragAndDrop.SetGenericData(DragDataKey, path);
+                        DragAndDrop.objectReferences = new UnityEngine.Object[0];
+                        DragAndDrop.StartDrag("Tween Node");
+                        e.Use();
+                    }
+                    break;
+
+                case EventType.MouseUp:
+                    _dragPath = null;
+                    break;
+
+                case EventType.DragUpdated:
+                case EventType.DragPerform:
+                    if (over && IsNodeDrag())
+                    {
+                        DropZone zone = GetDropZone(rowRect, e.mousePosition, isGroup);
+                        string sourcePath = DragAndDrop.GetGenericData(DragDataKey) as string;
+                        bool valid = CanDrop(sourcePath, path, zone);
+
+                        DragAndDrop.visualMode = valid ? DragAndDropVisualMode.Move : DragAndDropVisualMode.Rejected;
+                        _dropTargetPath = valid ? path : null;
+                        _dropZone = zone;
+
+                        if (e.type == EventType.DragPerform && valid)
+                        {
+                            DragAndDrop.AcceptDrag();
+                            string targetPath = path;
+                            _pendingChange = () => ApplyDrop(sourcePath, targetPath, zone);
+                            _dropTargetPath = null;
+                            _dragPath = null;
+                        }
+                        e.Use();
+                        Repaint();
+                    }
+                    break;
+
+                case EventType.DragExited:
+                    _dropTargetPath = null;
+                    _dragPath = null;
+                    Repaint();
+                    break;
+            }
+        }
+
+        private void DrawDropIndicator(Rect rowRect, string path)
+        {
+            if (Event.current.type != EventType.Repaint || path != _dropTargetPath) { return; }
+
+            Color color = new Color(0.24f, 0.55f, 0.95f, 1f);
+            if (_dropZone == DropZone.Inside)
+            {
+                EditorGUI.DrawRect(rowRect, new Color(0.24f, 0.55f, 0.95f, 0.25f));
+            }
+            else
+            {
+                float y = _dropZone == DropZone.Before ? rowRect.y : rowRect.yMax - 2f;
+                EditorGUI.DrawRect(new Rect(rowRect.x, y, rowRect.width, 2f), color);
+            }
+        }
+
+        private static bool IsNodeDrag()
+        {
+            return DragAndDrop.GetGenericData(DragDataKey) is string;
+        }
+
+        private static DropZone GetDropZone(Rect rowRect, Vector2 mouse, bool isGroup)
+        {
+            float t = (mouse.y - rowRect.y) / rowRect.height;
+            if (isGroup)
+            {
+                if (t < 0.25f) { return DropZone.Before; }
+                if (t > 0.75f) { return DropZone.After; }
+                return DropZone.Inside;
+            }
+            return t < 0.5f ? DropZone.Before : DropZone.After;
+        }
+
+        private bool CanDrop(string sourcePath, string targetPath, DropZone zone)
+        {
+            if (string.IsNullOrEmpty(sourcePath) || sourcePath == targetPath || _serializedObject == null)
+            {
+                return false;
+            }
+
+            TweenNode source = _serializedObject.FindProperty(sourcePath)?.managedReferenceValue as TweenNode;
+            TweenNode target = _serializedObject.FindProperty(targetPath)?.managedReferenceValue as TweenNode;
+            if (source == null || target == null || source == target) { return false; }
+
+            if (IsDescendantOrSelf(source, target)) { return false; }
+            if (zone == DropZone.Inside && GetChildList(target) == null) { return false; }
+
+            return true;
+        }
+
+        private void ApplyDrop(string sourcePath, string targetPath, DropZone zone)
+        {
+            if (_serializedObject == null || _target == null) { return; }
+
+            TweenNode source = _serializedObject.FindProperty(sourcePath)?.managedReferenceValue as TweenNode;
+            TweenNode target = _serializedObject.FindProperty(targetPath)?.managedReferenceValue as TweenNode;
+            if (source == null || target == null) { return; }
+
+            Undo.RegisterCompleteObjectUndo(_target, "Move Tween Node");
+            if (MoveNode(_target, source, target, zone))
+            {
+                EditorUtility.SetDirty(_target);
+            }
+
+            RefreshTarget();
+            ClearSelection();
+        }
+
+        // ---- object-graph move (reference-based, avoids SerializedProperty index shifts) ----
+
+        private static bool MoveNode(TweenPlayer player, TweenNode source, TweenNode target, DropZone zone)
+        {
+            if (source == null || target == null || source == target) { return false; }
+            if (IsDescendantOrSelf(source, target)) { return false; }
+
+            List<TweenNode> destList;
+            int destIndex;
+            if (zone == DropZone.Inside)
+            {
+                destList = GetChildList(target);
+                if (destList == null) { return false; }
+                destIndex = destList.Count;
+            }
+            else
+            {
+                if (!LocateContainer(player, target, out List<TweenNode> targetList, out int targetIndex, out _)
+                    || targetList == null)
+                {
+                    return false; // target is the root (no sibling list)
+                }
+                destList = targetList;
+                destIndex = zone == DropZone.After ? targetIndex + 1 : targetIndex;
+            }
+
+            if (!LocateContainer(player, source, out List<TweenNode> srcList, out int srcIndex, out bool srcIsRoot))
+            {
+                return false;
+            }
+
+            if (srcIsRoot)
+            {
+                SetRoot(player, null);
+            }
+            else
+            {
+                srcList.RemoveAt(srcIndex);
+                if (srcList == destList && srcIndex < destIndex) { destIndex--; }
+            }
+
+            destIndex = Mathf.Clamp(destIndex, 0, destList.Count);
+            destList.Insert(destIndex, source);
+            return true;
+        }
+
+        private static List<TweenNode> GetChildList(TweenNode node)
+        {
+            if (node == null) { return null; }
+
+            FieldInfo field = node.GetType().GetField(NodesPropName, BindingFlags.NonPublic | BindingFlags.Instance);
+            return field != null ? field.GetValue(node) as List<TweenNode> : null;
+        }
+
+        private static bool IsDescendantOrSelf(TweenNode source, TweenNode node)
+        {
+            if (source == node) { return true; }
+
+            List<TweenNode> children = GetChildList(source);
+            if (children == null) { return false; }
+
+            for (int i = 0; i < children.Count; i++)
+            {
+                if (IsDescendantOrSelf(children[i], node)) { return true; }
+            }
+            return false;
+        }
+
+        private static bool LocateContainer(TweenPlayer player, TweenNode node, out List<TweenNode> list, out int index, out bool isRoot)
+        {
+            list = null;
+            index = -1;
+            isRoot = false;
+
+            if (player.Root == node) { isRoot = true; return true; }
+            return LocateIn(player.Root, node, ref list, ref index);
+        }
+
+        private static bool LocateIn(TweenNode current, TweenNode target, ref List<TweenNode> list, ref int index)
+        {
+            List<TweenNode> children = GetChildList(current);
+            if (children == null) { return false; }
+
+            for (int i = 0; i < children.Count; i++)
+            {
+                if (children[i] == target) { list = children; index = i; return true; }
+                if (LocateIn(children[i], target, ref list, ref index)) { return true; }
+            }
+            return false;
+        }
+
+        private static void SetRoot(TweenPlayer player, TweenNode value)
+        {
+            FieldInfo field = typeof(TweenPlayer).GetField(RootFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field != null) { field.SetValue(player, value); }
         }
 
         private void DrawTreeFooter()

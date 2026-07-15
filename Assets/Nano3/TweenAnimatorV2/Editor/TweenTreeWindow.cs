@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
@@ -22,9 +23,15 @@ namespace Nano3.TweenAnimator
         private const string LoopModePropName = "_loopMode";
         private const string LoopsPropName = "_loops";
         private const string RootFieldName = "_root";
+        private const string NameFieldName = "_name";
+        private const string TweenFieldName = "_tween";
+        private const string DurationFieldName = "_duration";
+        private const string DelayFieldName = "_delay";
         private const string DragDataKey = "TweenTreeNodeDrag";
+        private const string RenameControlName = "TweenRenameField";
         private const float IndentWidth = 14f;
         private const float RowHeight = 18f;
+        private const float DurationColumnWidth = 54f;
 
         private enum DropZone { Before, After, Inside }
 
@@ -49,6 +56,12 @@ namespace Nano3.TweenAnimator
         private string _dragPath;                 // node being dragged (candidate + active)
         private string _dropTargetPath;           // row currently hovered as a drop target
         private DropZone _dropZone;
+
+        // Inline rename state.
+        private string _renamePath;
+        private bool _renameFocusPending;
+
+        private GUIStyle _durationStyle;
 
         [MenuItem("Window/Nano3/Tween Tree Editor")]
         public static void Open()
@@ -314,9 +327,19 @@ namespace Nano3.TweenAnimator
                 nodeProp.isExpanded = EditorGUI.Foldout(foldoutRect, nodeProp.isExpanded, GUIContent.none);
             }
 
-            Rect labelRect = new Rect(x + 14f, rowRect.y, rowRect.xMax - (x + 14f), rowRect.height);
-            string label = GetNodeLabel(nodeProp, nodes);
-            GUI.Label(labelRect, label);
+            Rect durationRect = new Rect(rowRect.xMax - DurationColumnWidth, rowRect.y, DurationColumnWidth, rowRect.height);
+            Rect labelRect = new Rect(x + 14f, rowRect.y, durationRect.x - (x + 14f), rowRect.height);
+
+            if (_renamePath == nodeProp.propertyPath)
+            {
+                DrawRenameField(labelRect, nodeProp);
+            }
+            else
+            {
+                GUI.Label(labelRect, GetNodeLabel(nodeProp, nodes));
+            }
+
+            GUI.Label(durationRect, FormatDuration(GetNodeDuration(nodeProp)), DurationStyle());
 
             HandleRowEvents(rowRect, nodeProp, parentList, index, isGroup);
             DrawDropIndicator(rowRect, nodeProp.propertyPath);
@@ -341,6 +364,13 @@ namespace Nano3.TweenAnimator
                 case EventType.MouseDown:
                     if (over)
                     {
+                        // Clicking a different row ends any in-progress rename.
+                        if (!string.IsNullOrEmpty(_renamePath) && _renamePath != path)
+                        {
+                            _renamePath = null;
+                            GUI.FocusControl(null);
+                        }
+
                         Select(nodeProp, parentList, index);
                         if (e.button == 1)
                         {
@@ -349,7 +379,16 @@ namespace Nano3.TweenAnimator
                         }
                         else if (e.button == 0)
                         {
-                            _dragPath = path; // candidate; a real drag starts on MouseDrag
+                            if (e.clickCount == 2)
+                            {
+                                _renamePath = path; // start inline rename
+                                _renameFocusPending = true;
+                                e.Use();
+                            }
+                            else
+                            {
+                                _dragPath = path; // candidate; a real drag starts on MouseDrag
+                            }
                         }
                         Repaint();
                     }
@@ -625,6 +664,13 @@ namespace Nano3.TweenAnimator
                 EditorGUILayout.LabelField(TweenNodeTypeMenu.GetDisplayName(value.GetType()), EditorStyles.boldLabel);
                 EditorGUILayout.Space(2);
 
+                SerializedProperty nameProp = selected.FindPropertyRelative(NameFieldName);
+                if (nameProp != null)
+                {
+                    EditorGUILayout.PropertyField(nameProp, new GUIContent("Name"));
+                    EditorGUILayout.Space(2);
+                }
+
                 foreach (SerializedProperty child in EnumerateEditableChildren(selected))
                 {
                     EditorGUILayout.PropertyField(child, true);
@@ -639,7 +685,17 @@ namespace Nano3.TweenAnimator
 
         private void Select(SerializedProperty nodeProp, SerializedProperty parentList, int index)
         {
-            _selectedPath = nodeProp.propertyPath;
+            string newPath = nodeProp.propertyPath;
+
+            // Selecting a different node must drop keyboard focus, otherwise an active text
+            // field (e.g. the inspector Name field) keeps its edit buffer on the same control.
+            if (newPath != _selectedPath)
+            {
+                GUI.FocusControl(null);
+                EditorGUIUtility.editingTextField = false;
+            }
+
+            _selectedPath = newPath;
             _selectedParentPath = parentList != null ? parentList.propertyPath : null;
             _selectedIndex = parentList != null ? index : -1;
         }
@@ -835,12 +891,97 @@ namespace Nano3.TweenAnimator
             object value = nodeProp.managedReferenceValue;
             if (value == null) { return "(None)"; }
 
-            string name = TweenNodeTypeMenu.GetDisplayName(value.GetType());
+            SerializedProperty nameProp = nodeProp.FindPropertyRelative(NameFieldName);
+            string custom = nameProp != null ? nameProp.stringValue : null;
+            string name = string.IsNullOrEmpty(custom)
+                ? TweenNodeTypeMenu.GetDisplayName(value.GetType())
+                : custom;
+
             if (nodes != null)
             {
                 return $"{name}  ({nodes.arraySize})";
             }
             return name;
+        }
+
+        private void DrawRenameField(Rect rect, SerializedProperty nodeProp)
+        {
+            SerializedProperty nameProp = nodeProp.FindPropertyRelative(NameFieldName);
+            if (nameProp == null) { _renamePath = null; return; }
+
+            GUI.SetNextControlName(RenameControlName);
+            EditorGUI.BeginChangeCheck();
+            string newName = EditorGUI.DelayedTextField(rect, nameProp.stringValue);
+            if (EditorGUI.EndChangeCheck())
+            {
+                nameProp.stringValue = newName;
+                _renamePath = null; // DelayedTextField commits on Enter / focus loss
+            }
+
+            if (_renameFocusPending)
+            {
+                EditorGUI.FocusTextInControl(RenameControlName);
+                _renameFocusPending = false;
+            }
+
+            Event e = Event.current;
+            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
+            {
+                _renamePath = null;
+                GUI.FocusControl(null);
+                e.Use();
+                Repaint();
+            }
+        }
+
+        private GUIStyle DurationStyle()
+        {
+            if (_durationStyle == null)
+            {
+                _durationStyle = new GUIStyle(EditorStyles.miniLabel)
+                {
+                    alignment = TextAnchor.MiddleRight
+                };
+                _durationStyle.normal.textColor = new Color(0.55f, 0.55f, 0.55f);
+            }
+            return _durationStyle;
+        }
+
+        private static string FormatDuration(float seconds)
+        {
+            return seconds.ToString("0.##", CultureInfo.InvariantCulture) + "s";
+        }
+
+        /// <summary>
+        /// Duration of one pass: a leaf is Delay + Duration; a Sequence sums its children; a
+        /// Parallel takes the longest child. Computed recursively up the tree.
+        /// </summary>
+        private static float GetNodeDuration(SerializedProperty nodeProp)
+        {
+            object value = nodeProp != null ? nodeProp.managedReferenceValue : null;
+            if (value == null) { return 0f; }
+
+            SerializedProperty nodes = nodeProp.FindPropertyRelative(NodesPropName);
+            if (nodes != null)
+            {
+                bool parallel = typeof(TweenParallel).IsAssignableFrom(value.GetType());
+                float total = 0f;
+                for (int i = 0; i < nodes.arraySize; i++)
+                {
+                    float child = GetNodeDuration(nodes.GetArrayElementAtIndex(i));
+                    total = parallel ? Mathf.Max(total, child) : total + child;
+                }
+                return total;
+            }
+
+            SerializedProperty tween = nodeProp.FindPropertyRelative(TweenFieldName);
+            if (tween == null) { return 0f; }
+
+            SerializedProperty delay = tween.FindPropertyRelative(DelayFieldName);
+            SerializedProperty duration = tween.FindPropertyRelative(DurationFieldName);
+            float delayValue = delay != null ? delay.floatValue : 0f;
+            float durationValue = duration != null ? duration.floatValue : 0f;
+            return delayValue + durationValue;
         }
 
         private static IEnumerable<SerializedProperty> EnumerateEditableChildren(SerializedProperty property)
@@ -854,6 +995,7 @@ namespace Nano3.TweenAnimator
                 enterChildren = false;
                 if (iterator.name == StatePropName) { continue; }
                 if (iterator.name == NodesPropName) { continue; }
+                if (iterator.name == NameFieldName) { continue; } // shown as a dedicated Name field
                 yield return iterator.Copy();
             }
         }

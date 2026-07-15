@@ -14,6 +14,10 @@ namespace Nano3.TweenAnimator
         [SerializeField] protected TweenState _state;
         public TweenState State { get { return _state; } }
 
+        [Tooltip("Optional custom name shown in the tree editor. Falls back to the type name when empty.")]
+        [SerializeField] private string _name;
+        public string Name { get { return _name; } set { _name = value; } }
+
         /// <summary>
         /// When true the node's tween ignores Time.timeScale (plays during a timeScale=0 pause).
         /// Pushed down from the player; NOT serialized (runtime-only). Groups forward it to children.

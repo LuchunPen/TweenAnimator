@@ -57,12 +57,24 @@ namespace Nano3.TweenAnimator
         private void OnEnable()
         {
             Selection.selectionChanged += OnSelectionChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeChanged;
             OnSelectionChanged();
         }
 
         private void OnDisable()
         {
             Selection.selectionChanged -= OnSelectionChanged;
+            EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+        }
+
+        private void OnPlayModeChanged(PlayModeStateChange change)
+        {
+            // Domain reload / scene swap on play<->edit transitions invalidates the cached
+            // SerializedObject (and may destroy the target). Re-acquire when settled.
+            if (change == PlayModeStateChange.EnteredEditMode || change == PlayModeStateChange.EnteredPlayMode)
+            {
+                RefreshTarget();
+            }
         }
 
         private void OnInspectorUpdate()
@@ -93,6 +105,26 @@ namespace Nano3.TweenAnimator
             ClearSelection();
         }
 
+        /// <summary>
+        /// Rebuild the SerializedObject after a domain reload / play-mode swap. Keeps the current
+        /// target if it is still alive; otherwise re-acquires from the current selection.
+        /// </summary>
+        private void RefreshTarget()
+        {
+            if (_target != null)
+            {
+                _serializedObject = new SerializedObject(_target);
+                _rootProp = _serializedObject.FindProperty(RootPropName);
+            }
+            else if (!_locked)
+            {
+                GameObject go = Selection.activeGameObject;
+                SetTarget(go != null ? go.GetComponent<TweenPlayer>() : null);
+            }
+
+            Repaint();
+        }
+
         private void ClearSelection()
         {
             _selectedPath = null;
@@ -102,6 +134,13 @@ namespace Nano3.TweenAnimator
 
         private void OnGUI()
         {
+            // The target may have been destroyed by a scene/domain swap while the window kept a
+            // stale SerializedObject; recover before drawing.
+            if (_serializedObject != null && _serializedObject.targetObject == null)
+            {
+                RefreshTarget();
+            }
+
             DrawToolbar();
 
             if (_target == null || _serializedObject == null)

@@ -213,7 +213,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &413816037
 RectTransform:
   m_ObjectHideFlags: 0
@@ -249,7 +249,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _root:
-    rid: 6644129063953498118
+    rid: 6644129221533237248
   _playOnStart: 0
   _useUnscaledTime: 0
   _loopMode: 0
@@ -257,64 +257,64 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 6644129063953498118
-      type: {class: TweenSequence, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
+    - rid: 6644129221533237248
+      type: {class: TweenSequence, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: Root
+        _nodes:
+        - rid: 6644129221533237250
+        - rid: 6644129221533237253
+    - rid: 6644129221533237250
+      type: {class: TweenParallel, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
         _name: 
         _nodes:
-        - rid: 6644129063953498122
-        - rid: 6644129063953498119
-    - rid: 6644129063953498119
-      type: {class: TweenParallel, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
+        - rid: 6644129221533237251
+        - rid: 6644129221533237252
+    - rid: 6644129221533237251
+      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
-        _name: 
-        _nodes:
-        - rid: 6644129063953498120
-        - rid: 6644129063953498121
-    - rid: 6644129063953498120
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
-      data:
-        _state: 0
-        _name: 
+        _name: ScalePanel_1
         _tween:
           _delay: 0
-          _duration: 1
+          _duration: 0.75
           _ease: 1
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 1600289227}
         _startValue: 1
-        _endValue: 1.5
-    - rid: 6644129063953498121
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
+        _endValue: 0.5
+    - rid: 6644129221533237252
+      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
-        _name: 
+        _name: ScalePanel_2
         _tween:
           _delay: 0
-          _duration: 0.75
-          _ease: 24
+          _duration: 1.5
+          _ease: 1
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 1076931631}
         _startValue: 1
-        _endValue: 1.5
-    - rid: 6644129063953498122
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
+        _endValue: 0.6
+    - rid: 6644129221533237253
+      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
-        _name: 
+        _name: ScalePanel_3
         _tween:
           _delay: 0
           _duration: 1
-          _ease: 1
+          _ease: 24
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 2069262424}
         _startValue: 1
-        _endValue: 0.5
+        _endValue: 1.25
 --- !u!1 &495098528
 GameObject:
   m_ObjectHideFlags: 0
@@ -501,7 +501,7 @@ GameObject:
   - component: {fileID: 1076931633}
   - component: {fileID: 1076931632}
   m_Layer: 5
-  m_Name: 'Panel '
+  m_Name: Panel_2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -679,7 +679,7 @@ GameObject:
   - component: {fileID: 1600289229}
   - component: {fileID: 1600289228}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: Panel_1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -754,7 +754,7 @@ GameObject:
   - component: {fileID: 2069262426}
   - component: {fileID: 2069262425}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: Panel_3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -833,7 +833,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2138986335
 RectTransform:
   m_ObjectHideFlags: 0
@@ -867,7 +867,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _root:
-    rid: 6644129063953498124
+    rid: 6644129221533237254
   _playOnStart: 0
   _useUnscaledTime: 0
   _loopMode: 1
@@ -875,52 +875,52 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 6644129063953498124
-      type: {class: TweenSequence, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
+    - rid: 6644129221533237254
+      type: {class: TweenSequence, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
-        _name: RootSequence
+        _name: 
         _nodes:
-        - rid: 6644129063953498125
-        - rid: 6644129063953498126
-        - rid: 6644129063953498127
-    - rid: 6644129063953498125
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
+        - rid: 6644129221533237256
+        - rid: 6644129221533237257
+        - rid: 6644129221533237258
+    - rid: 6644129221533237256
+      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
         _name: ScaleDown
         _tween:
           _delay: 0
           _duration: 0.5
-          _ease: 5
+          _ease: 2
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 60932492}
         _startValue: 1
-        _endValue: 0.75
-    - rid: 6644129063953498126
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
+        _endValue: 0.5
+    - rid: 6644129221533237257
+      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
         _name: ScaleUp
         _tween:
           _delay: 0
-          _duration: 0.7
-          _ease: 6
+          _duration: 0.5
+          _ease: 3
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 60932492}
-        _startValue: 0.75
+        _startValue: 0.5
         _endValue: 1
-    - rid: 6644129063953498127
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Assembly-CSharp}
+    - rid: 6644129221533237258
+      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
         _name: Delay
         _tween:
           _delay: 1
-          _duration: 0
-          _ease: 0
+          _duration: 1
+          _ease: 1
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 60932492}

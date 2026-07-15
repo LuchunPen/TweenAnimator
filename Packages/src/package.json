@@ -1,9 +1,9 @@
 {
   "name": "com.luchunpen.tweenanimator",
-  "displayName": "Tween animator",
-  "description": "A package for tween-based animations in Unity",
-  "version": "1.1.0",
-  "unity": "2021.3",
+  "displayName": "Tween Animator",
+  "description": "DOTween-based UI animation tool: build nested tween trees (Sequence/Parallel) from a single component and a visual tree editor. Requires DOTween in the project.",
+  "version": "2.0.0",
+  "unity": "2022.3",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
   "keywords": [
     "ui",
     "animation",
-    "tween"
+    "tween",
+    "dotween"
   ]
 }

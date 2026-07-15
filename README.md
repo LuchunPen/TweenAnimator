@@ -61,30 +61,50 @@ Editor shortcuts:
 
 ## Usage — from code
 
-Drive an existing tree via the `TweenPlayer` component:
+Drive an existing tree through the `TweenPlayer` component. Its API:
+
+- `Play(Action onComplete = null)` — play from the current state.
+- `Stop()` — kill the animation.
+- `ResetAnimation()` — return to the start state.
+- `Pause()` / `Resume()` (and `IsPaused`) — pause keeping progress.
+- `SetFinishState(Action onComplete = null)` — jump to the finished state.
+
+The sample scene uses this controller (see `Assets/Nano3/Example`), binding the
+player to the keyboard — **Q** play, **E** stop, **Space** pause/resume:
 
 ```csharp
 using UnityEngine;
 using Nano3.TweenAnimator;
 
-public class PopupController : MonoBehaviour
+public class TweenPlayerExample : MonoBehaviour
 {
     [SerializeField] private TweenPlayer _player;
 
-    private void OnEnable()
+    private void Update()
     {
-        _player.ResetAnimation();
-        _player.Play(OnComplete);
-    }
+        if (_player == null) { return; }
 
-    public void Hide()
-    {
-        _player.Stop();
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            _player.ResetAnimation();
+            _player.Play(OnComplete);
+        }
+
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            _player.Stop();
+        }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            if (_player.IsPaused) { _player.Resume(); }
+            else { _player.Pause(); }
+        }
     }
 
     private void OnComplete()
     {
-        Debug.Log("Animation complete");
+        Debug.Log("Tween complete");
     }
 }
 ```

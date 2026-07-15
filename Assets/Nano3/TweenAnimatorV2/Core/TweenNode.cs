@@ -33,6 +33,12 @@ namespace Nano3.TweenAnimator
         }
 
         /// <summary>
+        /// Pause or resume this node (and, for groups, all descendants). Only nodes with an
+        /// active tween are affected; a paused animation keeps its progress.
+        /// </summary>
+        public virtual void SetPaused(bool paused) { }
+
+        /// <summary>
         /// Called once by the player before the first playback (equivalent of MonoBehaviour.Start).
         /// Groups forward this to their children. Override to cache initial values.
         /// </summary>

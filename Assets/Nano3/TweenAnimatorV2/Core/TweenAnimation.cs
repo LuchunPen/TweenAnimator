@@ -34,6 +34,14 @@ namespace Nano3.TweenAnimator
             _state = TweenState.Play;
         }
 
+        public override void SetPaused(bool paused)
+        {
+            if (_tw == null || !_tw.IsActive()) { return; }
+
+            if (paused) { _tw.Pause(); }
+            else { _tw.Play(); }
+        }
+
         /// <summary>Apply the current <see cref="_value"/> to the target. Called every frame.</summary>
         protected abstract void Apply();
 

@@ -24,6 +24,14 @@ namespace Nano3.TweenAnimator
             }
         }
 
+        public override void SetPaused(bool paused)
+        {
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                _nodes[i].SetPaused(paused);
+            }
+        }
+
         public override void Init()
         {
             for (int i = 0; i < _nodes.Count; i++)

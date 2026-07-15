@@ -7,8 +7,9 @@ up one MonoBehaviour per animation.
 > Requires [DOTween](http://dotween.demigiant.com/) in the project.
 > Tested on Unity 2022.3 (LTS).
 
-![Tween Tree editor overview](Documentation~/images/tree-editor-overview.png)
-<!-- SCREENSHOT: the Tween Tree window next to a GameObject with a TweenPlayer -->
+![Tween Tree editor](Documentation~/images/tree-editor-overview.png)
+
+![Sample animation](Documentation~/images/anim-example.gif)
 
 ## Features
 
@@ -46,9 +47,6 @@ package), as it is a required dependency and is not bundled.
    nodes and leaf animations. Assign the scene targets (Transform / RectTransform /
    CanvasGroup) in the parameters panel on the right.
 4. Options: **Play On Start**, **Use Unscaled Time**, **Loop**.
-
-![Building a tree](Documentation~/images/tree-editor-building.png)
-<!-- SCREENSHOT: a tree with a Sequence -> Parallel -> leaves, params panel open -->
 
 Editor shortcuts:
 

@@ -62,6 +62,7 @@ namespace Nano3.TweenAnimator
         private bool _renameFocusPending;
 
         private GUIStyle _durationStyle;
+        private GUIContent _missingIcon;
 
         [MenuItem("Window/Nano3/Tween Tree Editor")]
         public static void Open()
@@ -329,6 +330,14 @@ namespace Nano3.TweenAnimator
 
             Rect durationRect = new Rect(rowRect.xMax - DurationColumnWidth, rowRect.y, DurationColumnWidth, rowRect.height);
             Rect labelRect = new Rect(x + 14f, rowRect.y, durationRect.x - (x + 14f), rowRect.height);
+
+            if (_renamePath != nodeProp.propertyPath && HasMissingTarget(nodeProp))
+            {
+                Rect iconRect = new Rect(labelRect.x, rowRect.y + 1f, 16f, 16f);
+                GUI.Label(iconRect, MissingTargetIcon());
+                labelRect.x += 18f;
+                labelRect.width -= 18f;
+            }
 
             if (_renamePath == nodeProp.propertyPath)
             {
@@ -673,6 +682,13 @@ namespace Nano3.TweenAnimator
 
                 foreach (SerializedProperty child in EnumerateEditableChildren(selected))
                 {
+                    if (child.propertyType == SerializedPropertyType.ObjectReference && child.objectReferenceValue == null)
+                    {
+                        EditorGUILayout.HelpBox(
+                            $"Assign a target for \"{child.displayName}\" — playing without it throws a NullReferenceException.",
+                            MessageType.Error);
+                    }
+
                     EditorGUILayout.PropertyField(child, true);
                 }
             }
@@ -945,6 +961,47 @@ namespace Nano3.TweenAnimator
                 _durationStyle.normal.textColor = new Color(0.55f, 0.55f, 0.55f);
             }
             return _durationStyle;
+        }
+
+        private GUIContent MissingTargetIcon()
+        {
+            if (_missingIcon == null)
+            {
+                _missingIcon = new GUIContent(EditorGUIUtility.IconContent("console.erroricon.sml"))
+                {
+                    tooltip = "A target object is not assigned — playing will throw a NullReferenceException."
+                };
+            }
+            return _missingIcon;
+        }
+
+        /// <summary>
+        /// True if this node (or, for groups, any descendant) is a leaf with an unassigned
+        /// object-reference target. Event-only leaves (SetBool/Trigger) have no such field.
+        /// </summary>
+        private static bool HasMissingTarget(SerializedProperty nodeProp)
+        {
+            object value = nodeProp != null ? nodeProp.managedReferenceValue : null;
+            if (value == null) { return false; }
+
+            SerializedProperty nodes = nodeProp.FindPropertyRelative(NodesPropName);
+            if (nodes != null)
+            {
+                for (int i = 0; i < nodes.arraySize; i++)
+                {
+                    if (HasMissingTarget(nodes.GetArrayElementAtIndex(i))) { return true; }
+                }
+                return false;
+            }
+
+            foreach (SerializedProperty child in EnumerateEditableChildren(nodeProp))
+            {
+                if (child.propertyType == SerializedPropertyType.ObjectReference && child.objectReferenceValue == null)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static string FormatDuration(float seconds)

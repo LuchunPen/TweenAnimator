@@ -31,6 +31,8 @@ namespace Nano3.TweenAnimator
         private int _loopsRemaining;
         private bool _isPaused;
         private bool _isPlaying;
+        private float _startTime;
+        private float _pausedElapsed;
 
         public string Name { get { return _name; } set { _name = value; } }
         public TweenNode Root { get { return _root; } }
@@ -40,6 +42,32 @@ namespace Nano3.TweenAnimator
         public int Loops { get { return _loops; } set { _loops = value; } }
         public bool IsPaused { get { return _isPaused; } }
         public bool IsPlaying { get { return _isPlaying; } }
+
+        private float Now { get { return _useUnscaledTime ? Time.unscaledTime : Time.time; } }
+
+        /// <summary>Total duration of one pass, in seconds.</summary>
+        public float Duration { get { return _root != null ? _root.GetDuration() : 0f; } }
+
+        /// <summary>Seconds elapsed in the current pass (frozen while paused).</summary>
+        public float Elapsed
+        {
+            get
+            {
+                if (!_isPlaying) { return 0f; }
+                return _isPaused ? _pausedElapsed : Now - _startTime;
+            }
+        }
+
+        /// <summary>Time-based playback progress in [0..1].</summary>
+        public float Progress
+        {
+            get
+            {
+                if (!_isPlaying) { return 0f; }
+                float duration = Duration;
+                return duration > 0f ? Mathf.Clamp01(Elapsed / duration) : 1f;
+            }
+        }
 
         /// <summary>Cache initial node state (equivalent of MonoBehaviour.Start). Called once by the player.</summary>
         public void Init()
@@ -56,6 +84,7 @@ namespace Nano3.TweenAnimator
 
             _isPaused = false;
             _isPlaying = true;
+            _startTime = Now;
             _loopsRemaining = _loops;
             PlayInternal(onComplete);
         }
@@ -72,6 +101,7 @@ namespace Nano3.TweenAnimator
             {
                 if (_loopsRemaining > 0) { _loopsRemaining--; }
 
+                _startTime = Now;
                 _root.Reset();
                 PlayInternal(onComplete);
                 return;
@@ -94,8 +124,9 @@ namespace Nano3.TweenAnimator
         /// <summary>Pause playback, keeping progress. Resume with <see cref="Resume"/>.</summary>
         public void Pause()
         {
-            if (_root == null || _isPaused) { return; }
+            if (_root == null || _isPaused || !_isPlaying) { return; }
 
+            _pausedElapsed = Now - _startTime;
             _isPaused = true;
             _root.SetPaused(true);
         }
@@ -105,6 +136,7 @@ namespace Nano3.TweenAnimator
         {
             if (_root == null || !_isPaused) { return; }
 
+            _startTime = Now - _pausedElapsed;
             _isPaused = false;
             _root.SetPaused(false);
         }

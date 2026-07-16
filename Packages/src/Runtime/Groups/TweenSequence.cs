@@ -30,6 +30,16 @@ namespace Nano3.TweenAnimator
             }
         }
 
+        public override float GetDuration()
+        {
+            float total = 0f;
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                total += _nodes[i].GetDuration();
+            }
+            return total;
+        }
+
         public override void Init()
         {
             for (int i = 0; i < _nodes.Count; i++)

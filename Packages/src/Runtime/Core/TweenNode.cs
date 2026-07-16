@@ -44,6 +44,9 @@ namespace Nano3.TweenAnimator
         /// </summary>
         public virtual void Init() { }
 
+        /// <summary>Duration of one pass in seconds (leaf: delay+duration; group: sum/max of children).</summary>
+        public virtual float GetDuration() { return 0f; }
+
         /// <summary>Start playing; <paramref name="onComplete"/> fires when this node finishes.</summary>
         public abstract void Play(Action onComplete = null);
 

@@ -55,6 +55,11 @@ namespace Nano3.TweenAnimator
             else { _tw.Play(); }
         }
 
+        public override float GetDuration()
+        {
+            return _instant ? 0f : _tween.Delay + _tween.Duration;
+        }
+
         /// <summary>Apply the current <see cref="_value"/> to the target. Called every frame.</summary>
         protected abstract void Apply();
 

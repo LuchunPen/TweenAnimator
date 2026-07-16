@@ -255,6 +255,13 @@ namespace Nano3.TweenAnimator
                 _pendingChange = null;
                 change.Invoke();
             }
+
+            // Keep the progress bar / Play highlight smooth while a clip is playing.
+            if (Application.isPlaying)
+            {
+                TweenClip clip = SelectedClipObject();
+                if (clip != null && clip.IsPlaying) { Repaint(); }
+            }
         }
 
         /// <summary>Run a structural edit transactionally against the target's SerializedObject.</summary>
@@ -329,13 +336,32 @@ namespace Nano3.TweenAnimator
             GUILayout.FlexibleSpace();
 
             string clipName = SelectedClipName();
+            bool clipPlaying = Application.isPlaying && _target != null
+                && !string.IsNullOrEmpty(clipName) && _target.IsPlaying(clipName);
+            bool clipPaused = clipPlaying && _target.IsPaused(clipName);
+
             using (new EditorGUI.DisabledScope(_target == null || !Application.isPlaying || string.IsNullOrEmpty(clipName)))
             {
+                Color prevBg = GUI.backgroundColor;
+                if (clipPlaying && !clipPaused) { GUI.backgroundColor = new Color(0.4f, 0.85f, 0.4f); }
                 if (GUILayout.Button("Play", EditorStyles.toolbarButton, GUILayout.Width(50)))
                 {
                     _target.ResetAnimation(clipName);
                     _target.Play(clipName);
                 }
+                GUI.backgroundColor = prevBg;
+
+                using (new EditorGUI.DisabledScope(!clipPlaying))
+                {
+                    if (clipPaused) { GUI.backgroundColor = new Color(0.9f, 0.8f, 0.35f); }
+                    if (GUILayout.Button(clipPaused ? "Resume" : "Pause", EditorStyles.toolbarButton, GUILayout.Width(60)))
+                    {
+                        if (clipPaused) { _target.Resume(clipName); }
+                        else { _target.Pause(clipName); }
+                    }
+                    GUI.backgroundColor = prevBg;
+                }
+
                 if (GUILayout.Button("Stop", EditorStyles.toolbarButton, GUILayout.Width(50)))
                 {
                     _target.Stop(clipName);
@@ -383,6 +409,16 @@ namespace Nano3.TweenAnimator
                 {
                     _pendingChange = RemoveSelectedClip;
                 }
+            }
+
+            TweenClip clip = SelectedClipObject();
+            if (Application.isPlaying && clip != null && clip.IsPlaying)
+            {
+                GUILayout.Space(10f);
+                Rect barRect = GUILayoutUtility.GetRect(220f, 14f, GUILayout.Width(220f));
+                barRect.y += 2f;
+                EditorGUI.ProgressBar(barRect, clip.Progress,
+                    $"{clip.Elapsed.ToString("0.0", CultureInfo.InvariantCulture)} / {clip.Duration.ToString("0.0", CultureInfo.InvariantCulture)}s");
             }
 
             GUILayout.FlexibleSpace();

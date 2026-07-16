@@ -32,6 +32,16 @@ namespace Nano3.TweenAnimator
             }
         }
 
+        public override float GetDuration()
+        {
+            float max = 0f;
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                max = Mathf.Max(max, _nodes[i].GetDuration());
+            }
+            return max;
+        }
+
         public override void Init()
         {
             for (int i = 0; i < _nodes.Count; i++)

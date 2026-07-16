@@ -33,6 +33,8 @@ namespace Nano3.TweenAnimator
         private bool _isPlaying;
         private float _startTime;
         private float _pausedElapsed;
+        private Action _onComplete;
+        private Action _onStepComplete;
 
         public string Name { get { return _name; } set { _name = value; } }
         public TweenNode Root { get { return _root; } }
@@ -78,37 +80,57 @@ namespace Nano3.TweenAnimator
             _root.Init();
         }
 
-        public void Play(Action onComplete = null)
+        /// <summary>Start playing. Returns the clip so callbacks can be chained fluently.</summary>
+        public TweenClip Play()
         {
-            if (_root == null) { return; }
+            if (_root == null) { return this; }
 
+            _onComplete = null;
+            _onStepComplete = null;
             _isPaused = false;
             _isPlaying = true;
             _startTime = Now;
             _loopsRemaining = _loops;
-            PlayInternal(onComplete);
+            PlayInternal();
+            return this;
         }
 
-        private void PlayInternal(Action onComplete)
+        /// <summary>Fluent: callback when the clip fully finishes (never fires on an infinite loop).</summary>
+        public TweenClip OnComplete(Action callback)
+        {
+            _onComplete = callback;
+            return this;
+        }
+
+        /// <summary>Fluent: callback fired at the end of every pass, including each loop cycle.</summary>
+        public TweenClip OnStepComplete(Action callback)
+        {
+            _onStepComplete = callback;
+            return this;
+        }
+
+        private void PlayInternal()
         {
             _root.SetUnscaledTime(_useUnscaledTime);
-            _root.Play(() => OnRootComplete(onComplete));
+            _root.Play(OnRootComplete);
         }
 
-        private void OnRootComplete(Action onComplete)
+        private void OnRootComplete()
         {
+            _onStepComplete?.Invoke();
+
             if (_loopMode == TweenLoopMode.Restart && _loopsRemaining != 0)
             {
                 if (_loopsRemaining > 0) { _loopsRemaining--; }
 
                 _startTime = Now;
                 _root.Reset();
-                PlayInternal(onComplete);
+                PlayInternal();
                 return;
             }
 
             _isPlaying = false;
-            onComplete?.Invoke();
+            _onComplete?.Invoke();
         }
 
         public void Stop()

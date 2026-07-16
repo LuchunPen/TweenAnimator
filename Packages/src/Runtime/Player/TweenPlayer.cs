@@ -24,16 +24,26 @@ namespace Nano3.TweenAnimator
             }
         }
 
-        /// <summary>Play the clip with the given name; <paramref name="onComplete"/> fires when it finishes.</summary>
-        public void Play(string name, Action onComplete = null)
+        /// <summary>
+        /// Play the clip with the given name. Returns the clip so callbacks can be chained:
+        /// <c>player.Play("Show").OnComplete(cb).OnStepComplete(cb)</c>. Null if the clip is missing.
+        /// </summary>
+        public TweenClip Play(string name)
         {
             TweenClip clip = Find(name);
             if (clip == null)
             {
                 Debug.LogWarning($"TweenPlayer: no clip named '{name}' on '{gameObject.name}'.", this);
-                return;
+                return null;
             }
-            clip.Play(onComplete);
+            return clip.Play();
+        }
+
+        /// <summary>Convenience overload: play and register an OnComplete callback.</summary>
+        public TweenClip Play(string name, Action onComplete)
+        {
+            TweenClip clip = Play(name);
+            return clip != null ? clip.OnComplete(onComplete) : null;
         }
 
         public void Stop(string name)

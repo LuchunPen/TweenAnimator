@@ -19,7 +19,9 @@ public class TweenPlayerExample : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Q))
         {
             _player.ResetAnimation(_clipName);
-            _player.Play(_clipName, OnComplete);
+            _player.Play(_clipName)
+                ?.OnComplete(OnComplete)
+                .OnStepComplete(OnStepComplete);
         }
 
         if (Input.GetKeyDown(KeyCode.E))
@@ -37,5 +39,10 @@ public class TweenPlayerExample : MonoBehaviour
     private void OnComplete()
     {
         Debug.Log($"Tween clip '{_clipName}' complete");
+    }
+
+    private void OnStepComplete()
+    {
+        Debug.Log($"Tween clip '{_clipName}' step complete (each pass / loop cycle)");
     }
 }

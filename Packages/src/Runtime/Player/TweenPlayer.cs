@@ -1,117 +1,100 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Nano3.TweenAnimator
 {
     /// <summary>
-    /// The single component that drives a whole tween tree. The entire animation
-    /// (leaves + Sequence/Parallel groups) is stored in one serialized reference,
-    /// so a complex animation no longer needs a pile of components.
+    /// The single component that owns several named animations (<see cref="TweenClip"/>) and
+    /// drives them by name, so one object no longer needs a component (or a player) per animation.
+    /// Clips are independent — you can run more than one at a time.
     /// </summary>
-    public enum TweenLoopMode
-    {
-        None,
-        Restart
-    }
-
     public class TweenPlayer : MonoBehaviour
     {
-        [SerializeReference] private TweenNode _root;
-        [SerializeField] private bool _playOnStart;
-        [Tooltip("Play using unscaled time, so the animation keeps running while Time.timeScale = 0 " +
-                 "(e.g. a gameplay pause). Propagates to every node in the tree.")]
-        [SerializeField] private bool _useUnscaledTime;
-        [Tooltip("Loop the whole animation. Restart replays it from the start each cycle.")]
-        [SerializeField] private TweenLoopMode _loopMode = TweenLoopMode.None;
-        [Tooltip("How many extra times to repeat when looping. -1 = infinite.")]
-        [SerializeField] private int _loops = -1;
+        [SerializeField] private List<TweenClip> _clips = new List<TweenClip>();
 
-        private int _loopsRemaining;
-        private bool _isPaused;
-
-        public TweenNode Root { get { return _root; } }
-        public bool PlayOnStart { get { return _playOnStart; } set { _playOnStart = value; } }
-        public bool UseUnscaledTime { get { return _useUnscaledTime; } set { _useUnscaledTime = value; } }
-        public TweenLoopMode LoopMode { get { return _loopMode; } set { _loopMode = value; } }
-        public int Loops { get { return _loops; } set { _loops = value; } }
+        public IReadOnlyList<TweenClip> Clips { get { return _clips; } }
 
         private void Start()
         {
-            if (_root == null) { return; }
-
-            _root.SetUnscaledTime(_useUnscaledTime);
-            _root.Init();
-            if (_playOnStart) { Play(); }
-        }
-
-        public void Play(Action onComplete = null)
-        {
-            if (_root == null) { return; }
-
-            _isPaused = false;
-            _loopsRemaining = _loops;
-            PlayInternal(onComplete);
-        }
-
-        private void PlayInternal(Action onComplete)
-        {
-            _root.SetUnscaledTime(_useUnscaledTime);
-            _root.Play(() => OnRootComplete(onComplete));
-        }
-
-        private void OnRootComplete(Action onComplete)
-        {
-            if (_loopMode == TweenLoopMode.Restart && _loopsRemaining != 0)
+            for (int i = 0; i < _clips.Count; i++)
             {
-                if (_loopsRemaining > 0) { _loopsRemaining--; }
+                _clips[i].Init();
+                if (_clips[i].PlayOnStart) { _clips[i].Play(); }
+            }
+        }
 
-                _root.Reset();
-                PlayInternal(onComplete);
+        /// <summary>Play the clip with the given name; <paramref name="onComplete"/> fires when it finishes.</summary>
+        public void Play(string name, Action onComplete = null)
+        {
+            TweenClip clip = Find(name);
+            if (clip == null)
+            {
+                Debug.LogWarning($"TweenPlayer: no clip named '{name}' on '{gameObject.name}'.", this);
                 return;
             }
-
-            onComplete?.Invoke();
+            clip.Play(onComplete);
         }
 
+        public void Stop(string name)
+        {
+            Find(name)?.Stop();
+        }
+
+        /// <summary>Stop every clip on this player.</summary>
         public void Stop()
         {
-            if (_root == null) { return; }
-
-            _isPaused = false;
-            _loopsRemaining = 0;
-            _root.Stop();
+            for (int i = 0; i < _clips.Count; i++)
+            {
+                _clips[i].Stop();
+            }
         }
 
-        public bool IsPaused { get { return _isPaused; } }
-
-        /// <summary>Pause playback, keeping progress. Resume with <see cref="Resume"/>.</summary>
-        public void Pause()
+        public void Pause(string name)
         {
-            if (_root == null || _isPaused) { return; }
-
-            _isPaused = true;
-            _root.SetPaused(true);
+            Find(name)?.Pause();
         }
 
-        /// <summary>Resume playback after <see cref="Pause"/>.</summary>
-        public void Resume()
+        public void Resume(string name)
         {
-            if (_root == null || !_isPaused) { return; }
-
-            _isPaused = false;
-            _root.SetPaused(false);
+            Find(name)?.Resume();
         }
 
-        public void ResetAnimation()
+        public void ResetAnimation(string name)
         {
-            if (_root == null) { return; }
-            _root.Reset();
+            Find(name)?.ResetAnimation();
         }
 
-        public void SetFinishState(Action onComplete = null)
+        /// <summary>Instantly jump the named clip to its finished state; onComplete still fires.</summary>
+        public void SetFinishState(string name, Action onComplete = null)
         {
-            if (_root == null) { return; }
-            _root.SetFinishState(onComplete);
+            Find(name)?.SetFinishState(onComplete);
+        }
+
+        public bool IsPlaying(string name)
+        {
+            TweenClip clip = Find(name);
+            return clip != null && clip.IsPlaying;
+        }
+
+        public bool IsPaused(string name)
+        {
+            TweenClip clip = Find(name);
+            return clip != null && clip.IsPaused;
+        }
+
+        public TweenClip GetClip(string name)
+        {
+            return Find(name);
+        }
+
+        private TweenClip Find(string name)
+        {
+            for (int i = 0; i < _clips.Count; i++)
+            {
+                if (_clips[i].Name == name) { return _clips[i]; }
+            }
+            return null;
         }
     }
 }

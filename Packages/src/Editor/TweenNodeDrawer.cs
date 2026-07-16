@@ -16,6 +16,8 @@ namespace Nano3.TweenAnimator
     {
         private const float Spacing = 2f;
         private const string StateFieldName = "_state";
+        private const string InstantFieldName = "_instant";
+        private const string TweenFieldName = "_tween";
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
@@ -81,6 +83,9 @@ namespace Nano3.TweenAnimator
 
         private static IEnumerable<SerializedProperty> EnumerateChildren(SerializedProperty property)
         {
+            SerializedProperty instant = property.FindPropertyRelative(InstantFieldName);
+            bool hideTiming = instant != null && instant.boolValue;
+
             SerializedProperty iterator = property.Copy();
             SerializedProperty end = iterator.GetEndProperty();
 
@@ -89,6 +94,7 @@ namespace Nano3.TweenAnimator
             {
                 enterChildren = false;
                 if (iterator.name == StateFieldName) { continue; }
+                if (hideTiming && iterator.name == TweenFieldName) { continue; } // Instant ignores timing params
                 yield return iterator.Copy();
             }
         }

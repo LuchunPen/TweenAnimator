@@ -11,6 +11,9 @@ namespace Nano3.TweenAnimator
     [Serializable]
     public abstract class TweenAnimation : TweenNode
     {
+        [Tooltip("Apply the end value instantly with no tween — use it to set an initial state. " +
+                 "Timing parameters (duration, ease, delay) are ignored.")]
+        [SerializeField] private bool _instant;
         [SerializeField] private TweenData _tween = new TweenData();
 
         /// <summary>Eased progress in [0..1], written by the tweener each frame.</summary>
@@ -23,6 +26,16 @@ namespace Nano3.TweenAnimator
             if (_state == TweenState.Play) { return; }
 
             OnStarted();
+
+            if (_instant)
+            {
+                _value = 1f;
+                _state = TweenState.Complete;
+                Apply();
+                OnCompleted();
+                onComplete?.Invoke();
+                return;
+            }
 
             _tw = DOTween.To(() => _value, x => _value = x, 1f, _tween.Duration)
                 .SetEase(_tween.Ease, _tween.Amplitude, _tween.Period)

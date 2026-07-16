@@ -15,7 +15,6 @@ namespace Nano3.TweenAnimator
     /// </summary>
     public class TweenTreeWindow : EditorWindow
     {
-        private const string RootPropName = "_root";
         private const string NodesPropName = "_nodes";
         private const string StatePropName = "_state";
         private const string PlayOnStartPropName = "_playOnStart";
@@ -23,8 +22,10 @@ namespace Nano3.TweenAnimator
         private const string LoopModePropName = "_loopMode";
         private const string LoopsPropName = "_loops";
         private const string RootFieldName = "_root";
+        private const string ClipsPropName = "_clips";
         private const string NameFieldName = "_name";
         private const string TweenFieldName = "_tween";
+        private const string InstantFieldName = "_instant";
         private const string DurationFieldName = "_duration";
         private const string DelayFieldName = "_delay";
         private const string DragDataKey = "TweenTreeNodeDrag";
@@ -32,12 +33,15 @@ namespace Nano3.TweenAnimator
         private const float IndentWidth = 14f;
         private const float RowHeight = 18f;
         private const float DurationColumnWidth = 54f;
+        private const float IconColumnWidth = 16f;
 
         private enum DropZone { Before, After, Inside }
 
         private TweenPlayer _target;
         private SerializedObject _serializedObject;
-        private SerializedProperty _rootProp;
+        private SerializedProperty _clipsProp;
+        private SerializedProperty _rootProp;   // selected clip's root, recomputed each OnGUI
+        private int _selectedClipIndex;
 
         private string _selectedPath;
         private string _selectedParentPath;
@@ -63,6 +67,9 @@ namespace Nano3.TweenAnimator
 
         private GUIStyle _durationStyle;
         private GUIContent _missingIcon;
+
+        // Cut/copy/paste clipboard for node branches (a deep-cloned subtree). Session-only.
+        private static TweenNode s_clipboard;
 
         [MenuItem("Window/Nano3/Tween Tree Editor")]
         public static void Open()
@@ -124,7 +131,9 @@ namespace Nano3.TweenAnimator
         {
             _target = player;
             _serializedObject = player != null ? new SerializedObject(player) : null;
-            _rootProp = _serializedObject != null ? _serializedObject.FindProperty(RootPropName) : null;
+            _clipsProp = _serializedObject != null ? _serializedObject.FindProperty(ClipsPropName) : null;
+            _selectedClipIndex = 0;
+            UpdateRootProp();
             ClearSelection();
         }
 
@@ -137,7 +146,8 @@ namespace Nano3.TweenAnimator
             if (_target != null)
             {
                 _serializedObject = new SerializedObject(_target);
-                _rootProp = _serializedObject.FindProperty(RootPropName);
+                _clipsProp = _serializedObject.FindProperty(ClipsPropName);
+                UpdateRootProp();
             }
             else if (!_locked)
             {
@@ -146,6 +156,48 @@ namespace Nano3.TweenAnimator
             }
 
             Repaint();
+        }
+
+        /// <summary>Point <see cref="_rootProp"/> at the selected clip's root (or null if no clips).</summary>
+        private void UpdateRootProp()
+        {
+            _rootProp = null;
+            if (_clipsProp == null) { return; }
+
+            int count = _clipsProp.arraySize;
+            if (count == 0) { _selectedClipIndex = 0; return; }
+
+            _selectedClipIndex = Mathf.Clamp(_selectedClipIndex, 0, count - 1);
+            _rootProp = _clipsProp.GetArrayElementAtIndex(_selectedClipIndex).FindPropertyRelative(RootFieldName);
+        }
+
+        private SerializedProperty SelectedClipProp()
+        {
+            if (_clipsProp == null || _selectedClipIndex < 0 || _selectedClipIndex >= _clipsProp.arraySize)
+            {
+                return null;
+            }
+            return _clipsProp.GetArrayElementAtIndex(_selectedClipIndex);
+        }
+
+        private TweenClip SelectedClipObject()
+        {
+            if (_target == null) { return null; }
+
+            IReadOnlyList<TweenClip> clips = _target.Clips;
+            if (_selectedClipIndex < 0 || _selectedClipIndex >= clips.Count) { return null; }
+            return clips[_selectedClipIndex];
+        }
+
+        private string SelectedClipName()
+        {
+            SerializedProperty clip = SelectedClipProp();
+            return clip != null ? clip.FindPropertyRelative(NameFieldName).stringValue : null;
+        }
+
+        private string RootPath()
+        {
+            return _rootProp != null ? _rootProp.propertyPath : null;
         }
 
         private void ClearSelection()
@@ -173,13 +225,24 @@ namespace Nano3.TweenAnimator
             }
 
             _serializedObject.Update();
+            UpdateRootProp();
 
-            DrawPlayerOptions();
+            DrawClipBar();
 
-            EditorGUILayout.BeginHorizontal();
-            DrawTreePanel();
-            DrawInspectorPanel();
-            EditorGUILayout.EndHorizontal();
+            if (_clipsProp == null || _clipsProp.arraySize == 0)
+            {
+                EditorGUILayout.HelpBox("No clips yet. Add a clip to start building an animation.", MessageType.Info);
+            }
+            else
+            {
+                HandleShortcuts();
+                DrawClipOptions();
+
+                EditorGUILayout.BeginHorizontal();
+                DrawTreePanel();
+                DrawInspectorPanel();
+                EditorGUILayout.EndHorizontal();
+            }
 
             _serializedObject.ApplyModifiedProperties();
 
@@ -205,6 +268,51 @@ namespace Nano3.TweenAnimator
             Repaint();
         }
 
+        /// <summary>Keyboard: Delete removes the selected node; Ctrl+C/X/V copy/cut/paste a branch.
+        /// The root is not deletable. Ignored while typing / renaming.</summary>
+        private void HandleShortcuts()
+        {
+            Event e = Event.current;
+            if (e.type != EventType.KeyDown) { return; }
+            if (EditorGUIUtility.editingTextField || !string.IsNullOrEmpty(_renamePath)) { return; }
+
+            bool hasSel = !string.IsNullOrEmpty(_selectedPath);
+            bool rootSel = hasSel && _selectedIndex < 0;
+
+            if (e.keyCode == KeyCode.Delete)
+            {
+                if (hasSel && !rootSel) { DeleteSelection(); e.Use(); }
+                return;
+            }
+
+            if (!e.control && !e.command) { return; }
+
+            if (e.keyCode == KeyCode.C && hasSel)
+            {
+                CopyToClipboard(_serializedObject, _selectedPath);
+                e.Use();
+            }
+            else if (e.keyCode == KeyCode.X && hasSel && !rootSel)
+            {
+                string p = _selectedPath, pp = _selectedParentPath, rp = RootPath();
+                int idx = _selectedIndex;
+                _pendingChange = () => PerformChange(so =>
+                {
+                    CopyToClipboard(so, p);
+                    DeleteNode(so, pp, idx, rp);
+                    ClearSelection();
+                });
+                e.Use();
+            }
+            else if (e.keyCode == KeyCode.V && s_clipboard != null)
+            {
+                string p = _selectedPath, pp = _selectedParentPath, rp = RootPath();
+                int idx = _selectedIndex;
+                _pendingChange = () => PerformChange(so => DoPaste(so, p, pp, idx, rp));
+                e.Use();
+            }
+        }
+
         private void DrawToolbar()
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
@@ -220,46 +328,93 @@ namespace Nano3.TweenAnimator
 
             GUILayout.FlexibleSpace();
 
-            using (new EditorGUI.DisabledScope(_target == null || !Application.isPlaying))
+            string clipName = SelectedClipName();
+            using (new EditorGUI.DisabledScope(_target == null || !Application.isPlaying || string.IsNullOrEmpty(clipName)))
             {
                 if (GUILayout.Button("Play", EditorStyles.toolbarButton, GUILayout.Width(50)))
                 {
-                    _target.ResetAnimation();
-                    _target.Play();
+                    _target.ResetAnimation(clipName);
+                    _target.Play(clipName);
                 }
                 if (GUILayout.Button("Stop", EditorStyles.toolbarButton, GUILayout.Width(50)))
                 {
-                    _target.Stop();
+                    _target.Stop(clipName);
                 }
             }
 
             EditorGUILayout.EndHorizontal();
         }
 
-        private void DrawPlayerOptions()
+        private void DrawClipBar()
         {
+            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+
+            int count = _clipsProp != null ? _clipsProp.arraySize : 0;
+            if (count > 0)
+            {
+                string[] names = new string[count];
+                for (int i = 0; i < count; i++)
+                {
+                    string clipName = _clipsProp.GetArrayElementAtIndex(i).FindPropertyRelative(NameFieldName).stringValue;
+                    names[i] = string.IsNullOrEmpty(clipName) ? $"Clip {i}" : clipName;
+                }
+
+                GUILayout.Label("Clip", GUILayout.Width(30f));
+                int newIndex = EditorGUILayout.Popup(_selectedClipIndex, names, EditorStyles.toolbarPopup, GUILayout.Width(170f));
+                if (newIndex != _selectedClipIndex)
+                {
+                    _selectedClipIndex = newIndex;
+                    UpdateRootProp();
+                    ClearSelection();
+                }
+            }
+            else
+            {
+                GUILayout.Label("No clips", EditorStyles.miniLabel, GUILayout.Width(170f));
+            }
+
+            if (GUILayout.Button("+ Clip", EditorStyles.toolbarButton, GUILayout.Width(56f)))
+            {
+                _pendingChange = AddClip;
+            }
+            using (new EditorGUI.DisabledScope(count == 0))
+            {
+                if (GUILayout.Button("- Clip", EditorStyles.toolbarButton, GUILayout.Width(56f)))
+                {
+                    _pendingChange = RemoveSelectedClip;
+                }
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawClipOptions()
+        {
+            SerializedProperty clip = SelectedClipProp();
+            if (clip == null) { return; }
+
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
 
-            ToggleLeftProperty(PlayOnStartPropName,
-                new GUIContent("Play On Start"), 120f);
+            GUILayout.Label("Name", GUILayout.Width(40f));
+            EditorGUILayout.PropertyField(clip.FindPropertyRelative(NameFieldName), GUIContent.none, GUILayout.Width(150f));
 
             GUILayout.Space(12f);
+            ToggleLeftClipProp(clip, PlayOnStartPropName, new GUIContent("Play On Start"), 110f);
+            GUILayout.Space(8f);
+            ToggleLeftClipProp(clip, UnscaledTimePropName,
+                new GUIContent("Unscaled Time", "Keep playing while Time.timeScale = 0 (gameplay pause)."), 130f);
+            GUILayout.Space(8f);
 
-            ToggleLeftProperty(UnscaledTimePropName,
-                new GUIContent("Use Unscaled Time", "Keep playing while Time.timeScale = 0 (gameplay pause). Applies to the whole tree."),
-                150f);
-
-            GUILayout.Space(12f);
-
-            SerializedProperty loopMode = _serializedObject.FindProperty(LoopModePropName);
+            SerializedProperty loopMode = clip.FindPropertyRelative(LoopModePropName);
             if (loopMode != null)
             {
                 GUILayout.Label("Loop", GUILayout.Width(34f));
-                EditorGUILayout.PropertyField(loopMode, GUIContent.none, GUILayout.Width(90f));
+                EditorGUILayout.PropertyField(loopMode, GUIContent.none, GUILayout.Width(84f));
 
                 if (loopMode.enumValueIndex != 0) // 0 == TweenLoopMode.None
                 {
-                    SerializedProperty loops = _serializedObject.FindProperty(LoopsPropName);
+                    SerializedProperty loops = clip.FindPropertyRelative(LoopsPropName);
                     if (loops != null)
                     {
                         GUILayout.Label(new GUIContent("×", "How many extra times to repeat. -1 = infinite."), GUILayout.Width(12f));
@@ -272,9 +427,9 @@ namespace Nano3.TweenAnimator
             EditorGUILayout.EndHorizontal();
         }
 
-        private void ToggleLeftProperty(string propName, GUIContent label, float width)
+        private void ToggleLeftClipProp(SerializedProperty clip, string relativeName, GUIContent label, float width)
         {
-            SerializedProperty prop = _serializedObject.FindProperty(propName);
+            SerializedProperty prop = clip.FindPropertyRelative(relativeName);
             if (prop == null) { return; }
 
             EditorGUI.BeginChangeCheck();
@@ -285,6 +440,40 @@ namespace Nano3.TweenAnimator
             }
         }
 
+        private void AddClip()
+        {
+            PerformChange(so =>
+            {
+                SerializedProperty clips = so.FindProperty(ClipsPropName);
+                int i = clips.arraySize;
+                clips.InsertArrayElementAtIndex(i);
+
+                SerializedProperty clip = clips.GetArrayElementAtIndex(i);
+                clip.FindPropertyRelative(NameFieldName).stringValue = $"Clip {i + 1}";
+                clip.FindPropertyRelative(RootFieldName).managedReferenceValue = new TweenParallel { Name = "Root" };
+                clip.FindPropertyRelative(PlayOnStartPropName).boolValue = false;
+                clip.FindPropertyRelative(UnscaledTimePropName).boolValue = false;
+                clip.FindPropertyRelative(LoopModePropName).enumValueIndex = 0;
+                clip.FindPropertyRelative(LoopsPropName).intValue = -1;
+
+                _selectedClipIndex = i;
+                SelectRootNode(clip.FindPropertyRelative(RootFieldName).propertyPath);
+            });
+        }
+
+        private void RemoveSelectedClip()
+        {
+            PerformChange(so =>
+            {
+                SerializedProperty clips = so.FindProperty(ClipsPropName);
+                if (_selectedClipIndex < 0 || _selectedClipIndex >= clips.arraySize) { return; }
+
+                clips.DeleteArrayElementAtIndex(_selectedClipIndex);
+                if (_selectedClipIndex >= clips.arraySize) { _selectedClipIndex = clips.arraySize - 1; }
+                ClearSelection();
+            });
+        }
+
         private void DrawTreePanel()
         {
             EditorGUILayout.BeginVertical(GUILayout.Width(_treeWidth));
@@ -293,9 +482,14 @@ namespace Nano3.TweenAnimator
             if (_rootProp.managedReferenceValue == null)
             {
                 EditorGUILayout.LabelField("Root is empty.", EditorStyles.miniLabel);
+                string rootPath = RootPath();
                 if (GUILayout.Button("Set Root Node", GUILayout.Width(120)))
                 {
-                    TweenNodeTypeMenu.Show(false, type => PerformChange(so => AssignManagedReference(so, RootPropName, type)));
+                    TweenNodeTypeMenu.Show(false, type => PerformChange(so =>
+                    {
+                        AssignManagedReference(so, rootPath, type);
+                        SelectRootNode(rootPath);
+                    }));
                 }
             }
             else
@@ -320,7 +514,7 @@ namespace Nano3.TweenAnimator
                 EditorGUI.DrawRect(rowRect, new Color(0.24f, 0.48f, 0.90f, 0.35f));
             }
 
-            float x = rowRect.x + depth * IndentWidth;
+            float x = rowRect.x + IconColumnWidth + depth * IndentWidth;
 
             if (isGroup)
             {
@@ -331,12 +525,11 @@ namespace Nano3.TweenAnimator
             Rect durationRect = new Rect(rowRect.xMax - DurationColumnWidth, rowRect.y, DurationColumnWidth, rowRect.height);
             Rect labelRect = new Rect(x + 14f, rowRect.y, durationRect.x - (x + 14f), rowRect.height);
 
+            // Missing-target icon lives in a fixed left gutter, so it never shifts the name label.
             if (_renamePath != nodeProp.propertyPath && HasMissingTarget(nodeProp))
             {
-                Rect iconRect = new Rect(labelRect.x, rowRect.y + 1f, 16f, 16f);
+                Rect iconRect = new Rect(rowRect.x, rowRect.y + 1f, 16f, 16f);
                 GUI.Label(iconRect, MissingTargetIcon());
-                labelRect.x += 18f;
-                labelRect.width -= 18f;
             }
 
             if (_renamePath == nodeProp.propertyPath)
@@ -509,8 +702,11 @@ namespace Nano3.TweenAnimator
             TweenNode target = _serializedObject.FindProperty(targetPath)?.managedReferenceValue as TweenNode;
             if (source == null || target == null) { return; }
 
+            TweenClip clip = SelectedClipObject();
+            if (clip == null) { return; }
+
             Undo.RegisterCompleteObjectUndo(_target, "Move Tween Node");
-            if (MoveNode(_target, source, target, zone))
+            if (MoveNode(clip, source, target, zone))
             {
                 EditorUtility.SetDirty(_target);
             }
@@ -521,7 +717,7 @@ namespace Nano3.TweenAnimator
 
         // ---- object-graph move (reference-based, avoids SerializedProperty index shifts) ----
 
-        private static bool MoveNode(TweenPlayer player, TweenNode source, TweenNode target, DropZone zone)
+        private static bool MoveNode(TweenClip clip, TweenNode source, TweenNode target, DropZone zone)
         {
             if (source == null || target == null || source == target) { return false; }
             if (IsDescendantOrSelf(source, target)) { return false; }
@@ -536,7 +732,7 @@ namespace Nano3.TweenAnimator
             }
             else
             {
-                if (!LocateContainer(player, target, out List<TweenNode> targetList, out int targetIndex, out _)
+                if (!LocateContainer(clip, target, out List<TweenNode> targetList, out int targetIndex, out _)
                     || targetList == null)
                 {
                     return false; // target is the root (no sibling list)
@@ -545,14 +741,14 @@ namespace Nano3.TweenAnimator
                 destIndex = zone == DropZone.After ? targetIndex + 1 : targetIndex;
             }
 
-            if (!LocateContainer(player, source, out List<TweenNode> srcList, out int srcIndex, out bool srcIsRoot))
+            if (!LocateContainer(clip, source, out List<TweenNode> srcList, out int srcIndex, out bool srcIsRoot))
             {
                 return false;
             }
 
             if (srcIsRoot)
             {
-                SetRoot(player, null);
+                SetRoot(clip, null);
             }
             else
             {
@@ -587,14 +783,14 @@ namespace Nano3.TweenAnimator
             return false;
         }
 
-        private static bool LocateContainer(TweenPlayer player, TweenNode node, out List<TweenNode> list, out int index, out bool isRoot)
+        private static bool LocateContainer(TweenClip clip, TweenNode node, out List<TweenNode> list, out int index, out bool isRoot)
         {
             list = null;
             index = -1;
             isRoot = false;
 
-            if (player.Root == node) { isRoot = true; return true; }
-            return LocateIn(player.Root, node, ref list, ref index);
+            if (clip.Root == node) { isRoot = true; return true; }
+            return LocateIn(clip.Root, node, ref list, ref index);
         }
 
         private static bool LocateIn(TweenNode current, TweenNode target, ref List<TweenNode> list, ref int index)
@@ -610,10 +806,10 @@ namespace Nano3.TweenAnimator
             return false;
         }
 
-        private static void SetRoot(TweenPlayer player, TweenNode value)
+        private static void SetRoot(TweenClip clip, TweenNode value)
         {
-            FieldInfo field = typeof(TweenPlayer).GetField(RootFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field != null) { field.SetValue(player, value); }
+            FieldInfo field = typeof(TweenClip).GetField(RootFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field != null) { field.SetValue(clip, value); }
         }
 
         private void DrawTreeFooter()
@@ -630,23 +826,25 @@ namespace Nano3.TweenAnimator
             }
 
             bool hasSelection = !string.IsNullOrEmpty(_selectedPath);
-            using (new EditorGUI.DisabledScope(!hasSelection))
+            bool isRootSelected = hasSelection && _selectedIndex < 0;
+
+            using (new EditorGUI.DisabledScope(!hasSelection || isRootSelected))
             {
                 if (GUILayout.Button("Delete", EditorStyles.toolbarButton, GUILayout.Width(60)))
                 {
                     DeleteSelection();
                 }
+            }
 
-                using (new EditorGUI.DisabledScope(_selectedIndex < 0))
+            using (new EditorGUI.DisabledScope(!hasSelection || _selectedIndex < 0))
+            {
+                if (GUILayout.Button("▲", EditorStyles.toolbarButton, GUILayout.Width(28)))
                 {
-                    if (GUILayout.Button("▲", EditorStyles.toolbarButton, GUILayout.Width(28)))
-                    {
-                        MoveSelection(-1);
-                    }
-                    if (GUILayout.Button("▼", EditorStyles.toolbarButton, GUILayout.Width(28)))
-                    {
-                        MoveSelection(1);
-                    }
+                    MoveSelection(-1);
+                }
+                if (GUILayout.Button("▼", EditorStyles.toolbarButton, GUILayout.Width(28)))
+                {
+                    MoveSelection(1);
                 }
             }
 
@@ -680,8 +878,14 @@ namespace Nano3.TweenAnimator
                     EditorGUILayout.Space(2);
                 }
 
+                SerializedProperty instantProp = selected.FindPropertyRelative(InstantFieldName);
+                bool instant = instantProp != null && instantProp.boolValue;
+
                 foreach (SerializedProperty child in EnumerateEditableChildren(selected))
                 {
+                    // When Instant is on, timing params are ignored — hide them to avoid confusion.
+                    if (instant && child.name == TweenFieldName) { continue; }
+
                     if (child.propertyType == SerializedPropertyType.ObjectReference && child.objectReferenceValue == null)
                     {
                         EditorGUILayout.HelpBox(
@@ -731,7 +935,12 @@ namespace Nano3.TweenAnimator
         {
             if (_rootProp.managedReferenceValue == null)
             {
-                TweenNodeTypeMenu.Show(false, type => PerformChange(so => AssignManagedReference(so, RootPropName, type)));
+                string rootPath = RootPath();
+                TweenNodeTypeMenu.Show(false, type => PerformChange(so =>
+                {
+                    AssignManagedReference(so, rootPath, type);
+                    SelectRootNode(rootPath);
+                }));
                 return;
             }
 
@@ -743,10 +952,11 @@ namespace Nano3.TweenAnimator
         {
             string parentPath = _selectedParentPath;
             int index = _selectedIndex;
+            string rootPath = RootPath();
 
             _pendingChange = () => PerformChange(so =>
             {
-                DeleteNode(so, parentPath, index);
+                DeleteNode(so, parentPath, index, rootPath);
                 ClearSelection();
             });
         }
@@ -770,12 +980,12 @@ namespace Nano3.TweenAnimator
             });
         }
 
-        private static void DeleteNode(SerializedObject so, string parentPath, int index)
+        private static void DeleteNode(SerializedObject so, string parentPath, int index, string rootPath)
         {
             if (index < 0 || string.IsNullOrEmpty(parentPath))
             {
                 // Root node.
-                AssignManagedReference(so, RootPropName, null);
+                AssignManagedReference(so, rootPath, null);
                 return;
             }
 
@@ -791,6 +1001,7 @@ namespace Nano3.TweenAnimator
             string path = nodeProp.propertyPath;
             string parentPath = parentList != null ? parentList.propertyPath : null;
             int capturedIndex = parentList != null ? index : -1;
+            string rootPath = RootPath();
 
             GenericMenu menu = new GenericMenu();
 
@@ -805,26 +1016,47 @@ namespace Nano3.TweenAnimator
                 menu.AddSeparator(string.Empty);
             }
 
-            foreach (Type type in TweenNodeTypeMenu.GetNodeTypes())
-            {
-                Type captured = type;
-                menu.AddItem(new GUIContent("Change Type/" + TweenNodeTypeMenu.GetMenuPath(type)), false,
-                    () => PerformChange(so => AssignManagedReference(so, path, captured)));
-            }
+            bool isRoot = parentList == null;
 
-            menu.AddSeparator(string.Empty);
-
-            if (parentList != null)
+            if (!isRoot)
             {
                 menu.AddItem(new GUIContent("Duplicate"), false,
                     () => PerformChange(so => DuplicateNode(so, parentPath, capturedIndex)));
             }
 
-            menu.AddItem(new GUIContent("Delete"), false, () => PerformChange(so =>
+            menu.AddSeparator(string.Empty);
+
+            menu.AddItem(new GUIContent("Copy"), false, () => CopyToClipboard(_serializedObject, path));
+
+            if (!isRoot)
             {
-                DeleteNode(so, parentPath, capturedIndex);
-                ClearSelection();
-            }));
+                menu.AddItem(new GUIContent("Cut"), false, () => PerformChange(so =>
+                {
+                    CopyToClipboard(so, path);
+                    DeleteNode(so, parentPath, capturedIndex, rootPath);
+                    ClearSelection();
+                }));
+            }
+
+            if (s_clipboard != null)
+            {
+                menu.AddItem(new GUIContent("Paste"), false,
+                    () => PerformChange(so => DoPaste(so, path, parentPath, capturedIndex, rootPath)));
+            }
+            else
+            {
+                menu.AddDisabledItem(new GUIContent("Paste"));
+            }
+
+            if (!isRoot)
+            {
+                menu.AddSeparator(string.Empty);
+                menu.AddItem(new GUIContent("Delete"), false, () => PerformChange(so =>
+                {
+                    DeleteNode(so, parentPath, capturedIndex, rootPath);
+                    ClearSelection();
+                }));
+            }
 
             menu.ShowAsContext();
         }
@@ -843,6 +1075,57 @@ namespace Nano3.TweenAnimator
             list.InsertArrayElementAtIndex(index);
             list.GetArrayElementAtIndex(index).managedReferenceValue = clone;
             list.MoveArrayElement(index, index + 1);
+        }
+
+        private static void CopyToClipboard(SerializedObject so, string path)
+        {
+            TweenNode node = so.FindProperty(path)?.managedReferenceValue as TweenNode;
+            s_clipboard = node != null ? DeepClone(node) as TweenNode : null;
+        }
+
+        /// <summary>
+        /// Paste a deep clone of the clipboard branch relative to the given node: into it when it's
+        /// a group, after it when it's a leaf, or into the root's children as a fallback.
+        /// </summary>
+        private void DoPaste(SerializedObject so, string selPath, string selParentPath, int selIndex, string rootPath)
+        {
+            if (s_clipboard == null) { return; }
+
+            SerializedProperty targetList;
+            int insertAt;
+
+            SerializedProperty sel = string.IsNullOrEmpty(selPath) ? null : so.FindProperty(selPath);
+            if (sel != null && sel.FindPropertyRelative(NodesPropName) != null)
+            {
+                targetList = sel.FindPropertyRelative(NodesPropName);
+                insertAt = targetList.arraySize;
+                sel.isExpanded = true;
+            }
+            else if (sel != null && !string.IsNullOrEmpty(selParentPath))
+            {
+                targetList = so.FindProperty(selParentPath);
+                insertAt = selIndex + 1;
+            }
+            else
+            {
+                SerializedProperty root = so.FindProperty(rootPath);
+                targetList = root != null ? root.FindPropertyRelative(NodesPropName) : null;
+                if (root != null) { root.isExpanded = true; }
+                insertAt = targetList != null ? targetList.arraySize : 0;
+            }
+
+            if (targetList == null) { return; }
+
+            insertAt = Mathf.Clamp(insertAt, 0, targetList.arraySize);
+            if (insertAt == targetList.arraySize) { targetList.arraySize++; }
+            else { targetList.InsertArrayElementAtIndex(insertAt); }
+
+            SerializedProperty element = targetList.GetArrayElementAtIndex(insertAt);
+            element.managedReferenceValue = DeepClone(s_clipboard);
+
+            _selectedPath = element.propertyPath;
+            _selectedParentPath = targetList.propertyPath;
+            _selectedIndex = insertAt;
         }
 
         /// <summary>
@@ -876,7 +1159,7 @@ namespace Nano3.TweenAnimator
             return clone;
         }
 
-        private static void AddChild(SerializedObject so, string groupPath, Type type)
+        private void AddChild(SerializedObject so, string groupPath, Type type)
         {
             SerializedProperty group = so.FindProperty(groupPath);
             if (group == null) { return; }
@@ -889,6 +1172,18 @@ namespace Nano3.TweenAnimator
             SerializedProperty element = list.GetArrayElementAtIndex(newIndex);
             element.managedReferenceValue = type == null ? null : Activator.CreateInstance(type);
             group.isExpanded = true;
+
+            // Select the freshly added node so it's easy to find and edit.
+            _selectedPath = element.propertyPath;
+            _selectedParentPath = list.propertyPath;
+            _selectedIndex = newIndex;
+        }
+
+        private void SelectRootNode(string rootPath)
+        {
+            _selectedPath = rootPath;
+            _selectedParentPath = null;
+            _selectedIndex = -1;
         }
 
         private static void AssignManagedReference(SerializedObject so, string path, Type type)
@@ -1030,6 +1325,9 @@ namespace Nano3.TweenAnimator
                 }
                 return total;
             }
+
+            SerializedProperty instant = nodeProp.FindPropertyRelative(InstantFieldName);
+            if (instant != null && instant.boolValue) { return 0f; }
 
             SerializedProperty tween = nodeProp.FindPropertyRelative(TweenFieldName);
             if (tween == null) { return 0f; }

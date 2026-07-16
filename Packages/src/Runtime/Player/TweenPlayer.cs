@@ -32,20 +32,14 @@ namespace Nano3.TweenAnimator
         }
 
         /// <summary>
-        /// Play the clip with the given name. Returns the clip so callbacks can be chained:
-        /// <c>player.Play("Show").OnComplete(cb).OnStepComplete(cb)</c>. Null if the clip is missing.
+        /// Play the clip with the given name. <paramref name="onComplete"/> fires once when the
+        /// clip fully finishes (never on an infinite loop); <paramref name="onStepComplete"/>
+        /// fires at the end of every pass, including each loop cycle. Ignored (callbacks
+        /// discarded) while the clip is already playing.
         /// </summary>
-        public TweenClip Play(string name)
+        public void Play(string name, Action onComplete = null, Action onStepComplete = null)
         {
-            TweenClip clip = FindOrWarn(name);
-            return clip != null ? clip.Play() : null;
-        }
-
-        /// <summary>Convenience overload: play and register an OnComplete callback.</summary>
-        public TweenClip Play(string name, Action onComplete)
-        {
-            TweenClip clip = Play(name);
-            return clip != null ? clip.OnComplete(onComplete) : null;
+            FindOrWarn(name)?.Play(onComplete, onStepComplete);
         }
 
         public void Stop(string name)

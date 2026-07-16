@@ -19,9 +19,7 @@ public class TweenPlayerExample : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Q))
         {
             _player.ResetAnimation(_clipName);
-            _player.Play(_clipName)
-                ?.OnComplete(OnComplete)
-                .OnStepComplete(OnStepComplete);
+            _player.Play(_clipName, OnComplete, OnStepComplete);
         }
 
         if (Input.GetKeyDown(KeyCode.E))

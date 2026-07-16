@@ -87,6 +87,7 @@ namespace Nano3.TweenAnimator
         {
             Selection.selectionChanged += OnSelectionChanged;
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
+            Undo.undoRedoPerformed += OnUndoRedo;
             OnSelectionChanged();
         }
 
@@ -94,6 +95,14 @@ namespace Nano3.TweenAnimator
         {
             Selection.selectionChanged -= OnSelectionChanged;
             EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+            Undo.undoRedoPerformed -= OnUndoRedo;
+        }
+
+        private void OnUndoRedo()
+        {
+            // Undo/redo restructures [SerializeReference] data from outside, staling the cached
+            // SerializedObject exactly like our own edits do — rebuild it.
+            RefreshTarget();
         }
 
         private void OnPlayModeChanged(PlayModeStateChange change)

@@ -32,8 +32,6 @@ namespace Nano3.TweenAnimator
         private bool _isPaused;
         private bool _isPlaying;
         private bool _initialized;
-        private bool _inPlayCall;              // true while Play() itself is on the stack
-        private bool _completedSynchronously;  // the last run finished inside its own Play() call
         private float _startTime;
         private float _pausedElapsed;
         private Action _onComplete;
@@ -86,17 +84,20 @@ namespace Nano3.TweenAnimator
 
         /// <summary>
         /// Start playing from the beginning (the tree is reset first). Ignored while the clip
-        /// is already playing. Returns the clip so callbacks can be chained fluently.
+        /// is already playing — the passed callbacks are discarded in that case. Binding the
+        /// callbacks here, before the run starts, keeps them valid even for zero-duration clips
+        /// that complete synchronously inside this call.
         /// </summary>
-        public TweenClip Play()
+        /// <param name="onComplete">Fired once when the clip fully finishes (never on an infinite loop).</param>
+        /// <param name="onStepComplete">Fired at the end of every pass, including each loop cycle.</param>
+        public void Play(Action onComplete = null, Action onStepComplete = null)
         {
-            if (_root == null || _isPlaying) { return this; }
+            if (_root == null || _isPlaying) { return; }
 
             if (!_initialized) { Init(); }
 
-            _onComplete = null;
-            _onStepComplete = null;
-            _completedSynchronously = false;
+            _onComplete = onComplete;
+            _onStepComplete = onStepComplete;
             _isPaused = false;
             _isPlaying = true;
             _startTime = Now;
@@ -105,31 +106,7 @@ namespace Nano3.TweenAnimator
             // Restart from a clean state: without this, replaying a completed clip would tween
             // from end values to end values (a visually empty pass).
             _root.Reset();
-
-            _inPlayCall = true;
             PlayInternal();
-            _inPlayCall = false;
-            return this;
-        }
-
-        /// <summary>Fluent: callback when the clip fully finishes (never fires on an infinite loop).</summary>
-        public TweenClip OnComplete(Action callback)
-        {
-            // A zero-duration clip (instant-only nodes) finishes synchronously inside Play(),
-            // before any fluent call can run — fire immediately so the callback isn't lost.
-            if (_completedSynchronously) { callback?.Invoke(); return this; }
-
-            _onComplete = callback;
-            return this;
-        }
-
-        /// <summary>Fluent: callback fired at the end of every pass, including each loop cycle.</summary>
-        public TweenClip OnStepComplete(Action callback)
-        {
-            if (_completedSynchronously) { callback?.Invoke(); return this; }
-
-            _onStepComplete = callback;
-            return this;
         }
 
         private void PlayInternal()
@@ -163,7 +140,6 @@ namespace Nano3.TweenAnimator
             }
 
             _isPlaying = false;
-            _completedSynchronously = _inPlayCall;
             _onComplete?.Invoke();
             _onComplete = null;
             _onStepComplete = null;
@@ -176,7 +152,6 @@ namespace Nano3.TweenAnimator
             _isPaused = false;
             _isPlaying = false;
             _loopsRemaining = 0;
-            _completedSynchronously = false;
             _onComplete = null;
             _onStepComplete = null;
             _root.Stop();
@@ -209,7 +184,6 @@ namespace Nano3.TweenAnimator
             _isPaused = false;
             _isPlaying = false;
             _loopsRemaining = 0;
-            _completedSynchronously = false;
             _onComplete = null;
             _onStepComplete = null;
             _root.Reset();
@@ -224,7 +198,6 @@ namespace Nano3.TweenAnimator
             _isPaused = false;
             _isPlaying = false;
             _loopsRemaining = 0;
-            _completedSynchronously = false;
             _root.SetFinishState(onComplete);
 
             // Finishing early still completes the run, so fluent callbacks fire too.

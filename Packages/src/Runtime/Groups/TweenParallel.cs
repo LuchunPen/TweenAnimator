@@ -15,12 +15,16 @@ namespace Nano3.TweenAnimator
 
         private int _remaining;
 
+        // Null children can appear when a custom node's script is deleted (Unity deserialises
+        // the unknown [SerializeReference] type as null) — every traversal skips them so one
+        // broken entry doesn't take the whole clip down.
+
         public override void SetUnscaledTime(bool value)
         {
             base.SetUnscaledTime(value);
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].SetUnscaledTime(value);
+                _nodes[i]?.SetUnscaledTime(value);
             }
         }
 
@@ -28,7 +32,7 @@ namespace Nano3.TweenAnimator
         {
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].SetPaused(paused);
+                _nodes[i]?.SetPaused(paused);
             }
         }
 
@@ -37,7 +41,7 @@ namespace Nano3.TweenAnimator
             float max = 0f;
             for (int i = 0; i < _nodes.Count; i++)
             {
-                max = Mathf.Max(max, _nodes[i].GetDuration());
+                if (_nodes[i] != null) { max = Mathf.Max(max, _nodes[i].GetDuration()); }
             }
             return max;
         }
@@ -46,7 +50,7 @@ namespace Nano3.TweenAnimator
         {
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].Init();
+                _nodes[i]?.Init();
             }
         }
 
@@ -56,16 +60,22 @@ namespace Nano3.TweenAnimator
 
             _state = TweenState.Play;
 
-            if (_nodes.Count == 0)
+            int alive = 0;
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                if (_nodes[i] != null) { alive++; }
+            }
+
+            if (alive == 0)
             {
                 Complete(onComplete);
                 return;
             }
 
-            _remaining = _nodes.Count;
+            _remaining = alive;
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].Play(() => OnChildComplete(onComplete));
+                _nodes[i]?.Play(() => OnChildComplete(onComplete));
             }
         }
 
@@ -91,7 +101,7 @@ namespace Nano3.TweenAnimator
         {
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].SetFinishState();
+                _nodes[i]?.SetFinishState();
             }
 
             _state = TweenState.Complete;
@@ -103,7 +113,7 @@ namespace Nano3.TweenAnimator
             _state = TweenState.Stop;
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].Stop();
+                _nodes[i]?.Stop();
             }
         }
 
@@ -112,7 +122,7 @@ namespace Nano3.TweenAnimator
             _state = TweenState.Stop;
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].Reset();
+                _nodes[i]?.Reset();
             }
         }
     }

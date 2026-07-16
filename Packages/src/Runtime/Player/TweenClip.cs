@@ -31,6 +31,9 @@ namespace Nano3.TweenAnimator
         private int _loopsRemaining;
         private bool _isPaused;
         private bool _isPlaying;
+        private bool _initialized;
+        private bool _inPlayCall;              // true while Play() itself is on the stack
+        private bool _completedSynchronously;  // the last run finished inside its own Play() call
         private float _startTime;
         private float _pausedElapsed;
         private Action _onComplete;
@@ -71,33 +74,51 @@ namespace Nano3.TweenAnimator
             }
         }
 
-        /// <summary>Cache initial node state (equivalent of MonoBehaviour.Start). Called once by the player.</summary>
+        /// <summary>Cache initial node state (equivalent of MonoBehaviour.Start). Runs once; later calls are ignored.</summary>
         public void Init()
         {
-            if (_root == null) { return; }
+            if (_root == null || _initialized) { return; }
 
+            _initialized = true;
             _root.SetUnscaledTime(_useUnscaledTime);
             _root.Init();
         }
 
-        /// <summary>Start playing. Returns the clip so callbacks can be chained fluently.</summary>
+        /// <summary>
+        /// Start playing from the beginning (the tree is reset first). Ignored while the clip
+        /// is already playing. Returns the clip so callbacks can be chained fluently.
+        /// </summary>
         public TweenClip Play()
         {
-            if (_root == null) { return this; }
+            if (_root == null || _isPlaying) { return this; }
+
+            if (!_initialized) { Init(); }
 
             _onComplete = null;
             _onStepComplete = null;
+            _completedSynchronously = false;
             _isPaused = false;
             _isPlaying = true;
             _startTime = Now;
             _loopsRemaining = _loops;
+
+            // Restart from a clean state: without this, replaying a completed clip would tween
+            // from end values to end values (a visually empty pass).
+            _root.Reset();
+
+            _inPlayCall = true;
             PlayInternal();
+            _inPlayCall = false;
             return this;
         }
 
         /// <summary>Fluent: callback when the clip fully finishes (never fires on an infinite loop).</summary>
         public TweenClip OnComplete(Action callback)
         {
+            // A zero-duration clip (instant-only nodes) finishes synchronously inside Play(),
+            // before any fluent call can run — fire immediately so the callback isn't lost.
+            if (_completedSynchronously) { callback?.Invoke(); return this; }
+
             _onComplete = callback;
             return this;
         }
@@ -105,6 +126,8 @@ namespace Nano3.TweenAnimator
         /// <summary>Fluent: callback fired at the end of every pass, including each loop cycle.</summary>
         public TweenClip OnStepComplete(Action callback)
         {
+            if (_completedSynchronously) { callback?.Invoke(); return this; }
+
             _onStepComplete = callback;
             return this;
         }
@@ -121,16 +144,29 @@ namespace Nano3.TweenAnimator
 
             if (_loopMode == TweenLoopMode.Restart && _loopsRemaining != 0)
             {
-                if (_loopsRemaining > 0) { _loopsRemaining--; }
+                // A zero-length clip (empty root or instant-only nodes) completes synchronously,
+                // so looping it would recurse forever within a single frame.
+                if (Duration <= 0f)
+                {
+                    Debug.LogWarning($"TweenClip '{_name}': loop aborted — the clip has zero duration " +
+                                     "(empty or instant-only), looping it would never yield.");
+                }
+                else
+                {
+                    if (_loopsRemaining > 0) { _loopsRemaining--; }
 
-                _startTime = Now;
-                _root.Reset();
-                PlayInternal();
-                return;
+                    _startTime = Now;
+                    _root.Reset();
+                    PlayInternal();
+                    return;
+                }
             }
 
             _isPlaying = false;
+            _completedSynchronously = _inPlayCall;
             _onComplete?.Invoke();
+            _onComplete = null;
+            _onStepComplete = null;
         }
 
         public void Stop()
@@ -140,6 +176,9 @@ namespace Nano3.TweenAnimator
             _isPaused = false;
             _isPlaying = false;
             _loopsRemaining = 0;
+            _completedSynchronously = false;
+            _onComplete = null;
+            _onStepComplete = null;
             _root.Stop();
         }
 
@@ -170,6 +209,9 @@ namespace Nano3.TweenAnimator
             _isPaused = false;
             _isPlaying = false;
             _loopsRemaining = 0;
+            _completedSynchronously = false;
+            _onComplete = null;
+            _onStepComplete = null;
             _root.Reset();
         }
 
@@ -178,10 +220,21 @@ namespace Nano3.TweenAnimator
         {
             if (_root == null) { return; }
 
+            bool wasPlaying = _isPlaying;
             _isPaused = false;
             _isPlaying = false;
             _loopsRemaining = 0;
+            _completedSynchronously = false;
             _root.SetFinishState(onComplete);
+
+            // Finishing early still completes the run, so fluent callbacks fire too.
+            if (wasPlaying)
+            {
+                _onStepComplete?.Invoke();
+                _onComplete?.Invoke();
+            }
+            _onComplete = null;
+            _onStepComplete = null;
         }
     }
 }

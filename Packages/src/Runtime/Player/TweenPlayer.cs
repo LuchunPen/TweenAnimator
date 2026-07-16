@@ -24,19 +24,21 @@ namespace Nano3.TweenAnimator
             }
         }
 
+        private void OnDestroy()
+        {
+            // DOTween tweens are global (not tied to this GameObject); kill them here so a
+            // destroyed player doesn't keep applying values to destroyed targets.
+            Stop();
+        }
+
         /// <summary>
         /// Play the clip with the given name. Returns the clip so callbacks can be chained:
         /// <c>player.Play("Show").OnComplete(cb).OnStepComplete(cb)</c>. Null if the clip is missing.
         /// </summary>
         public TweenClip Play(string name)
         {
-            TweenClip clip = Find(name);
-            if (clip == null)
-            {
-                Debug.LogWarning($"TweenPlayer: no clip named '{name}' on '{gameObject.name}'.", this);
-                return null;
-            }
-            return clip.Play();
+            TweenClip clip = FindOrWarn(name);
+            return clip != null ? clip.Play() : null;
         }
 
         /// <summary>Convenience overload: play and register an OnComplete callback.</summary>
@@ -48,7 +50,7 @@ namespace Nano3.TweenAnimator
 
         public void Stop(string name)
         {
-            Find(name)?.Stop();
+            FindOrWarn(name)?.Stop();
         }
 
         /// <summary>Stop every clip on this player.</summary>
@@ -62,23 +64,23 @@ namespace Nano3.TweenAnimator
 
         public void Pause(string name)
         {
-            Find(name)?.Pause();
+            FindOrWarn(name)?.Pause();
         }
 
         public void Resume(string name)
         {
-            Find(name)?.Resume();
+            FindOrWarn(name)?.Resume();
         }
 
         public void ResetAnimation(string name)
         {
-            Find(name)?.ResetAnimation();
+            FindOrWarn(name)?.ResetAnimation();
         }
 
         /// <summary>Instantly jump the named clip to its finished state; onComplete still fires.</summary>
         public void SetFinishState(string name, Action onComplete = null)
         {
-            Find(name)?.SetFinishState(onComplete);
+            FindOrWarn(name)?.SetFinishState(onComplete);
         }
 
         public bool IsPlaying(string name)
@@ -105,6 +107,17 @@ namespace Nano3.TweenAnimator
                 if (_clips[i].Name == name) { return _clips[i]; }
             }
             return null;
+        }
+
+        /// <summary>Find used by command methods: a missing clip is a call-site bug, so it warns.</summary>
+        private TweenClip FindOrWarn(string name)
+        {
+            TweenClip clip = Find(name);
+            if (clip == null)
+            {
+                Debug.LogWarning($"TweenPlayer: no clip named '{name}' on '{gameObject.name}'.", this);
+            }
+            return clip;
         }
     }
 }

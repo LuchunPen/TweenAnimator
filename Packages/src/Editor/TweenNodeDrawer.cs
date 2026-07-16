@@ -42,7 +42,14 @@ namespace Nano3.TweenAnimator
                 position.width - EditorGUIUtility.labelWidth,
                 line);
 
-            if (GUI.Button(dropdownRect, GetCurrentTypeLabel(property), EditorStyles.popup))
+            if (hasValue)
+            {
+                // The type is fixed once created — changing it in place silently drops the
+                // node's data (and any children), so we only show it as a label. Recreate the
+                // node to use a different type.
+                EditorGUI.LabelField(dropdownRect, GetCurrentTypeLabel(property));
+            }
+            else if (GUI.Button(dropdownRect, GetCurrentTypeLabel(property), EditorStyles.popup))
             {
                 ShowTypeMenu(property);
             }
@@ -112,7 +119,8 @@ namespace Nano3.TweenAnimator
             SerializedObject serializedObject = property.serializedObject;
             string path = property.propertyPath;
 
-            TweenNodeTypeMenu.Show(true, type => AssignType(serializedObject, path, type));
+            // Only reachable when the field is empty, so no "(None)" entry is needed.
+            TweenNodeTypeMenu.Show(false, type => AssignType(serializedObject, path, type));
         }
 
         private static void AssignType(SerializedObject serializedObject, string path, Type type)

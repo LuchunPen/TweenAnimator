@@ -66,7 +66,6 @@ namespace Nano3.TweenAnimator
         private bool _renameFocusPending;
 
         private GUIStyle _durationStyle;
-        private GUIContent _missingIcon;
 
         // Cut/copy/paste clipboard for node branches (a deep-cloned subtree). Session-only.
         private static TweenNode s_clipboard;
@@ -472,6 +471,27 @@ namespace Nano3.TweenAnimator
 
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
+
+            string clipName = clip.FindPropertyRelative(NameFieldName).stringValue;
+            if (CountClipsNamed(clipName) > 1)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Several clips are named \"{clipName}\" — Play(name) will always use the first one.",
+                    MessageType.Warning);
+            }
+        }
+
+        private int CountClipsNamed(string clipName)
+        {
+            int count = 0;
+            for (int i = 0; i < _clipsProp.arraySize; i++)
+            {
+                if (_clipsProp.GetArrayElementAtIndex(i).FindPropertyRelative(NameFieldName).stringValue == clipName)
+                {
+                    count++;
+                }
+            }
+            return count;
         }
 
         private void ToggleLeftClipProp(SerializedProperty clip, string relativeName, GUIContent label, float width)
@@ -1307,16 +1327,13 @@ namespace Nano3.TweenAnimator
             return _durationStyle;
         }
 
-        private GUIContent MissingTargetIcon()
+        private static GUIContent MissingTargetIcon()
         {
-            if (_missingIcon == null)
-            {
-                _missingIcon = new GUIContent(EditorGUIUtility.IconContent("console.erroricon.sml"))
-                {
-                    tooltip = "A target object is not assigned — playing will throw a NullReferenceException."
-                };
-            }
-            return _missingIcon;
+            // Fetched fresh every time: caching the GUIContent made the icon flicker whenever
+            // Unity unloaded the underlying icon texture.
+            GUIContent icon = EditorGUIUtility.IconContent("console.erroricon.sml");
+            return new GUIContent(icon.image,
+                "A target object is not assigned — playing will throw a NullReferenceException.");
         }
 
         /// <summary>
@@ -1380,7 +1397,14 @@ namespace Nano3.TweenAnimator
         /// </summary>
         private static float GetNodeDuration(SerializedProperty nodeProp)
         {
-            if (nodeProp == null || string.IsNullOrEmpty(nodeProp.managedReferenceFullTypename)) { return 0f; }
+            if (nodeProp == null) { return 0f; }
+
+            // Prefer the live object: its virtual GetDuration matches the runtime exactly,
+            // including custom group subclasses. The serialized walk below is only a fallback
+            // for a momentarily stale managed reference.
+            if (nodeProp.managedReferenceValue is TweenNode node) { return node.GetDuration(); }
+
+            if (string.IsNullOrEmpty(nodeProp.managedReferenceFullTypename)) { return 0f; }
 
             SerializedProperty nodes = nodeProp.FindPropertyRelative(NodesPropName);
             if (nodes != null)

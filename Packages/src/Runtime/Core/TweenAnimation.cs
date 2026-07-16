@@ -20,6 +20,10 @@ namespace Nano3.TweenAnimator
         protected float _value;
 
         private Tweener _tw;
+        private bool _delaying;
+
+        /// <summary>True while the tween is waiting out its start delay (runtime, play-mode only).</summary>
+        public bool IsDelaying { get { return _delaying; } }
 
         public override void Play(Action onComplete = null)
         {
@@ -29,6 +33,7 @@ namespace Nano3.TweenAnimator
 
             if (_instant)
             {
+                _delaying = false;
                 _value = 1f;
                 _state = TweenState.Complete;
                 Apply();
@@ -37,14 +42,23 @@ namespace Nano3.TweenAnimator
                 return;
             }
 
+            _delaying = _tween.Delay > 0f;
+
             _tw = DOTween.To(() => _value, x => _value = x, 1f, _tween.Duration)
                 .SetEase(_tween.Ease, _tween.Amplitude, _tween.Period)
                 .SetDelay(_tween.Delay)
                 .SetUpdate(_useUnscaledTime)
-                .OnUpdate(Apply)
+                .OnStart(() => _delaying = false)   // fires after the delay
+                .OnUpdate(OnTweenUpdate)
                 .OnComplete(() => Complete(onComplete));
 
             _state = TweenState.Play;
+        }
+
+        private void OnTweenUpdate()
+        {
+            _delaying = false; // first update happens once the delay has elapsed
+            Apply();
         }
 
         public override void SetPaused(bool paused)
@@ -114,6 +128,7 @@ namespace Nano3.TweenAnimator
         {
             if (_tw != null && _tw.IsActive()) { _tw.Kill(); }
             _tw = null;
+            _delaying = false;
         }
     }
 }

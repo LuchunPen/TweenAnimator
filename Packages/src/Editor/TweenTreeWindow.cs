@@ -272,6 +272,17 @@ namespace Nano3.TweenAnimator
             _serializedObject.Update();
             op(_serializedObject);
             _serializedObject.ApplyModifiedProperties();
+
+            // Rebuild the SerializedObject: after a structural [SerializeReference] array edit
+            // (e.g. adding a clip), managedReferenceValue can go stale until the object is
+            // recreated — which intermittently hid the missing-target icons and durations.
+            if (_target != null)
+            {
+                _serializedObject = new SerializedObject(_target);
+                _clipsProp = _serializedObject.FindProperty(ClipsPropName);
+                UpdateRootProp();
+            }
+
             Repaint();
         }
 
@@ -545,9 +556,11 @@ namespace Nano3.TweenAnimator
             bool isSelected = nodeProp.propertyPath == _selectedPath;
 
             Rect rowRect = EditorGUILayout.GetControlRect(false, RowHeight);
-            if (Event.current.type == EventType.Repaint && isSelected)
+            if (Event.current.type == EventType.Repaint)
             {
-                EditorGUI.DrawRect(rowRect, new Color(0.24f, 0.48f, 0.90f, 0.35f));
+                Color? play = GetPlayHighlight(nodeProp);
+                if (play.HasValue) { EditorGUI.DrawRect(rowRect, play.Value); }
+                if (isSelected) { EditorGUI.DrawRect(rowRect, new Color(0.24f, 0.48f, 0.90f, 0.35f)); }
             }
 
             float x = rowRect.x + IconColumnWidth + depth * IndentWidth;
@@ -1312,8 +1325,9 @@ namespace Nano3.TweenAnimator
         /// </summary>
         private static bool HasMissingTarget(SerializedProperty nodeProp)
         {
-            object value = nodeProp != null ? nodeProp.managedReferenceValue : null;
-            if (value == null) { return false; }
+            // Use the serialized type name, not managedReferenceValue, which can go stale (null)
+            // right after structural array edits. Empty type name == a null reference == no node.
+            if (nodeProp == null || string.IsNullOrEmpty(nodeProp.managedReferenceFullTypename)) { return false; }
 
             SerializedProperty nodes = nodeProp.FindPropertyRelative(NodesPropName);
             if (nodes != null)
@@ -1341,18 +1355,37 @@ namespace Nano3.TweenAnimator
         }
 
         /// <summary>
+        /// Play-mode row tint: yellow while a leaf waits out its delay, green while actively
+        /// playing (groups only go green). Null when the node hasn't started or already finished.
+        /// </summary>
+        private static Color? GetPlayHighlight(SerializedProperty nodeProp)
+        {
+            if (!Application.isPlaying) { return null; }
+
+            object value = nodeProp.managedReferenceValue;
+            if (value is TweenNode node && node.State == TweenState.Play)
+            {
+                if (value is TweenAnimation leaf && leaf.IsDelaying)
+                {
+                    return new Color(0.95f, 0.85f, 0.25f, 0.28f); // waiting out delay
+                }
+                return new Color(0.35f, 0.85f, 0.35f, 0.25f); // actively playing
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Duration of one pass: a leaf is Delay + Duration; a Sequence sums its children; a
         /// Parallel takes the longest child. Computed recursively up the tree.
         /// </summary>
         private static float GetNodeDuration(SerializedProperty nodeProp)
         {
-            object value = nodeProp != null ? nodeProp.managedReferenceValue : null;
-            if (value == null) { return 0f; }
+            if (nodeProp == null || string.IsNullOrEmpty(nodeProp.managedReferenceFullTypename)) { return 0f; }
 
             SerializedProperty nodes = nodeProp.FindPropertyRelative(NodesPropName);
             if (nodes != null)
             {
-                bool parallel = typeof(TweenParallel).IsAssignableFrom(value.GetType());
+                bool parallel = nodeProp.managedReferenceFullTypename.EndsWith("TweenParallel");
                 float total = 0f;
                 for (int i = 0; i < nodes.arraySize; i++)
                 {

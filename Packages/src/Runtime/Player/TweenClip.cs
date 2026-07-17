@@ -200,7 +200,7 @@ namespace Nano3.TweenAnimator
             _loopsRemaining = 0;
             _root.SetFinishState(onComplete);
 
-            // Finishing early still completes the run, so fluent callbacks fire too.
+            // Finishing early still completes the run, so the stored callbacks fire too.
             if (wasPlaying)
             {
                 _onStepComplete?.Invoke();

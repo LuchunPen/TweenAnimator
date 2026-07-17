@@ -4,8 +4,9 @@ using UnityEngine;
 namespace Nano3.TweenAnimator
 {
     /// <summary>
-    /// Adds an "Open Tween Tree Editor" button above the default TweenPlayer inspector.
-    /// The default inspector (with the SerializeReference type-picker) still works as a fallback.
+    /// Adds an "Open Tween Tree Editor" button above the default TweenPlayer inspector. The
+    /// default inspector still draws the raw clip list below, so clips stay editable without
+    /// the window.
     /// </summary>
     [CustomEditor(typeof(TweenPlayer))]
     public class TweenPlayerEditor : Editor

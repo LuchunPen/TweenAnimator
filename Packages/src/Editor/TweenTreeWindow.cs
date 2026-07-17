@@ -67,6 +67,9 @@ namespace Nano3.TweenAnimator
         // Cut/copy/paste clipboard for node branches (a deep-cloned subtree). Session-only.
         private static TweenNode s_clipboard;
 
+        // Copy/paste clipboard for a whole clip (name, options and a deep-cloned tree). Session-only.
+        private static TweenClip s_clipClipboard;
+
         [MenuItem("Window/Nano3/Tween Tree Editor")]
         public static void Open()
         {
@@ -427,6 +430,23 @@ namespace Nano3.TweenAnimator
                 }
             }
 
+            using (new EditorGUI.DisabledScope(count == 0))
+            {
+                if (GUILayout.Button(new GUIContent("Copy Clip", "Copy this whole clip (name, options and tree)"),
+                        EditorStyles.toolbarButton, GUILayout.Width(70f)))
+                {
+                    s_clipClipboard = CloneClip(SelectedClipObject());
+                }
+            }
+            using (new EditorGUI.DisabledScope(s_clipClipboard == null))
+            {
+                if (GUILayout.Button(new GUIContent("Paste Clip", "Paste the copied clip as a new clip"),
+                        EditorStyles.toolbarButton, GUILayout.Width(72f)))
+                {
+                    _pendingChange = PasteClip;
+                }
+            }
+
             TweenClip clip = SelectedClipObject();
             if (Application.isPlaying && clip != null && clip.IsPlaying)
             {
@@ -545,6 +565,79 @@ namespace Nano3.TweenAnimator
                 if (_selectedClipIndex >= clips.arraySize) { _selectedClipIndex = clips.arraySize - 1; }
                 ClearSelection();
             });
+        }
+
+        /// <summary>Append the clipboard clip as a new clip, giving it a unique name.</summary>
+        private void PasteClip()
+        {
+            PerformChange(so =>
+            {
+                if (s_clipClipboard == null) { return; }
+
+                SerializedProperty clips = so.FindProperty(ClipsPropName);
+                // Resolve the name over the existing clips, before the new element is inserted,
+                // so the clip never collides with its own freshly added (duplicated) slot.
+                string name = UniqueClipName(clips, s_clipClipboard.Name);
+
+                int i = clips.arraySize;
+                clips.InsertArrayElementAtIndex(i);
+
+                SerializedProperty clip = clips.GetArrayElementAtIndex(i);
+                clip.FindPropertyRelative(NameFieldName).stringValue = name;
+                clip.FindPropertyRelative(PlayOnStartPropName).boolValue = s_clipClipboard.PlayOnStart;
+                clip.FindPropertyRelative(UnscaledTimePropName).boolValue = s_clipClipboard.UseUnscaledTime;
+                clip.FindPropertyRelative(LoopModePropName).enumValueIndex = (int)s_clipClipboard.LoopMode;
+                clip.FindPropertyRelative(LoopsPropName).intValue = s_clipClipboard.Loops;
+                // Overwrite the [SerializeReference] root right away: InsertArrayElementAtIndex
+                // copies the previous element, so this replaces any shared/stale managed reference.
+                clip.FindPropertyRelative(RootFieldName).managedReferenceValue = DeepClone(s_clipClipboard.Root) as TweenNode;
+
+                _selectedClipIndex = i;
+                SelectRootNode(clip.FindPropertyRelative(RootFieldName).propertyPath);
+            });
+        }
+
+        /// <summary>Snapshot a clip (scalar options via accessors, tree via a deep node clone).</summary>
+        private static TweenClip CloneClip(TweenClip source)
+        {
+            if (source == null) { return null; }
+
+            TweenClip clone = new TweenClip
+            {
+                Name = source.Name,
+                PlayOnStart = source.PlayOnStart,
+                UseUnscaledTime = source.UseUnscaledTime,
+                LoopMode = source.LoopMode,
+                Loops = source.Loops
+            };
+            SetRoot(clone, DeepClone(source.Root) as TweenNode);
+            return clone;
+        }
+
+        private static string UniqueClipName(SerializedProperty clips, string baseName)
+        {
+            if (string.IsNullOrEmpty(baseName)) { baseName = "Clip"; }
+
+            string candidate = baseName;
+            int suffix = 1;
+            while (ClipNameExists(clips, candidate))
+            {
+                suffix++;
+                candidate = suffix == 2 ? baseName + " Copy" : $"{baseName} Copy {suffix - 1}";
+            }
+            return candidate;
+        }
+
+        private static bool ClipNameExists(SerializedProperty clips, string name)
+        {
+            for (int i = 0; i < clips.arraySize; i++)
+            {
+                if (clips.GetArrayElementAtIndex(i).FindPropertyRelative(NameFieldName).stringValue == name)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void DrawTreePanel()

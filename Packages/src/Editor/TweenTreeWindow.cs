@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -63,12 +62,6 @@ namespace Nano3.TweenAnimator
         private bool _renameFocusPending;
 
         private GUIStyle _durationStyle;
-
-        // Cut/copy/paste clipboard for node branches (a deep-cloned subtree). Session-only.
-        private static TweenNode s_clipboard;
-
-        // Copy/paste clipboard for a whole clip (name, options and a deep-cloned tree). Session-only.
-        private static TweenClip s_clipClipboard;
 
         [MenuItem("Window/Nano3/Tween Tree Editor")]
         public static void Open()
@@ -330,7 +323,7 @@ namespace Nano3.TweenAnimator
                 });
                 e.Use();
             }
-            else if (e.keyCode == KeyCode.V && s_clipboard != null)
+            else if (e.keyCode == KeyCode.V && TweenTreeClipboard.HasNode)
             {
                 string p = _selectedPath, pp = _selectedParentPath, rp = RootPath();
                 int idx = _selectedIndex;
@@ -435,10 +428,10 @@ namespace Nano3.TweenAnimator
                 if (GUILayout.Button(new GUIContent("Copy Clip", "Copy this whole clip (name, options and tree)"),
                         EditorStyles.toolbarButton, GUILayout.Width(70f)))
                 {
-                    s_clipClipboard = CloneClip(SelectedClipObject());
+                    TweenTreeClipboard.CopyClip(SelectedClipObject());
                 }
             }
-            using (new EditorGUI.DisabledScope(s_clipClipboard == null))
+            using (new EditorGUI.DisabledScope(!TweenTreeClipboard.HasClip))
             {
                 if (GUILayout.Button(new GUIContent("Paste Clip", "Paste the copied clip as a new clip"),
                         EditorStyles.toolbarButton, GUILayout.Width(72f)))
@@ -572,46 +565,31 @@ namespace Nano3.TweenAnimator
         {
             PerformChange(so =>
             {
-                if (s_clipClipboard == null) { return; }
+                TweenClip src = TweenTreeClipboard.PasteClip();
+                if (src == null) { return; }
 
                 SerializedProperty clips = so.FindProperty(ClipsPropName);
                 // Resolve the name over the existing clips, before the new element is inserted,
                 // so the clip never collides with its own freshly added (duplicated) slot.
-                string name = UniqueClipName(clips, s_clipClipboard.Name);
+                string name = UniqueClipName(clips, src.Name);
 
                 int i = clips.arraySize;
                 clips.InsertArrayElementAtIndex(i);
 
                 SerializedProperty clip = clips.GetArrayElementAtIndex(i);
                 clip.FindPropertyRelative(NameFieldName).stringValue = name;
-                clip.FindPropertyRelative(PlayOnStartPropName).boolValue = s_clipClipboard.PlayOnStart;
-                clip.FindPropertyRelative(UnscaledTimePropName).boolValue = s_clipClipboard.UseUnscaledTime;
-                clip.FindPropertyRelative(LoopModePropName).enumValueIndex = (int)s_clipClipboard.LoopMode;
-                clip.FindPropertyRelative(LoopsPropName).intValue = s_clipClipboard.Loops;
-                // Overwrite the [SerializeReference] root right away: InsertArrayElementAtIndex
-                // copies the previous element, so this replaces any shared/stale managed reference.
-                clip.FindPropertyRelative(RootFieldName).managedReferenceValue = DeepClone(s_clipClipboard.Root) as TweenNode;
+                clip.FindPropertyRelative(PlayOnStartPropName).boolValue = src.PlayOnStart;
+                clip.FindPropertyRelative(UnscaledTimePropName).boolValue = src.UseUnscaledTime;
+                clip.FindPropertyRelative(LoopModePropName).enumValueIndex = (int)src.LoopMode;
+                clip.FindPropertyRelative(LoopsPropName).intValue = src.Loops;
+                // src is already a fresh independent clone, so its root can be attached directly.
+                // Overwriting the [SerializeReference] root also replaces the reference that
+                // InsertArrayElementAtIndex copied from the previous element.
+                clip.FindPropertyRelative(RootFieldName).managedReferenceValue = src.Root;
 
                 _selectedClipIndex = i;
                 SelectRootNode(clip.FindPropertyRelative(RootFieldName).propertyPath);
             });
-        }
-
-        /// <summary>Snapshot a clip (scalar options via accessors, tree via a deep node clone).</summary>
-        private static TweenClip CloneClip(TweenClip source)
-        {
-            if (source == null) { return null; }
-
-            TweenClip clone = new TweenClip
-            {
-                Name = source.Name,
-                PlayOnStart = source.PlayOnStart,
-                UseUnscaledTime = source.UseUnscaledTime,
-                LoopMode = source.LoopMode,
-                Loops = source.Loops
-            };
-            SetRoot(clone, DeepClone(source.Root) as TweenNode);
-            return clone;
         }
 
         private static string UniqueClipName(SerializedProperty clips, string baseName)
@@ -1206,7 +1184,7 @@ namespace Nano3.TweenAnimator
                 }));
             }
 
-            if (s_clipboard != null)
+            if (TweenTreeClipboard.HasNode)
             {
                 menu.AddItem(new GUIContent("Paste"), false,
                     () => PerformChange(so => DoPaste(so, path, parentPath, capturedIndex, rootPath)));
@@ -1237,7 +1215,7 @@ namespace Nano3.TweenAnimator
             if (list == null || index >= list.arraySize) { return; }
 
             object source = list.GetArrayElementAtIndex(index).managedReferenceValue;
-            object clone = DeepClone(source);
+            object clone = TweenTreeClipboard.Clone(source);
 
             // Insert the clone directly after the source.
             list.InsertArrayElementAtIndex(index);
@@ -1247,8 +1225,7 @@ namespace Nano3.TweenAnimator
 
         private static void CopyToClipboard(SerializedObject so, string path)
         {
-            TweenNode node = so.FindProperty(path)?.managedReferenceValue as TweenNode;
-            s_clipboard = node != null ? DeepClone(node) as TweenNode : null;
+            TweenTreeClipboard.CopyNode(so.FindProperty(path)?.managedReferenceValue as TweenNode);
         }
 
         /// <summary>
@@ -1257,7 +1234,7 @@ namespace Nano3.TweenAnimator
         /// </summary>
         private void DoPaste(SerializedObject so, string selPath, string selParentPath, int selIndex, string rootPath)
         {
-            if (s_clipboard == null) { return; }
+            if (!TweenTreeClipboard.HasNode) { return; }
 
             SerializedProperty targetList;
             int insertAt;
@@ -1289,42 +1266,11 @@ namespace Nano3.TweenAnimator
             else { targetList.InsertArrayElementAtIndex(insertAt); }
 
             SerializedProperty element = targetList.GetArrayElementAtIndex(insertAt);
-            element.managedReferenceValue = DeepClone(s_clipboard);
+            element.managedReferenceValue = TweenTreeClipboard.PasteNode();
 
             _selectedPath = element.propertyPath;
             _selectedParentPath = targetList.propertyPath;
             _selectedIndex = insertAt;
-        }
-
-        /// <summary>
-        /// Deep-copies a node. Flat serialized data (values, Object references, TweenData,
-        /// UnityEvents) is cloned via EditorJsonUtility; the nested [SerializeReference] child
-        /// list of groups is rebuilt recursively so subtypes are preserved.
-        /// </summary>
-        private static object DeepClone(object source)
-        {
-            if (source == null) { return null; }
-
-            Type type = source.GetType();
-            object clone = Activator.CreateInstance(type);
-            EditorJsonUtility.FromJsonOverwrite(EditorJsonUtility.ToJson(source), clone);
-
-            FieldInfo nodesField = type.GetField(NodesPropName, BindingFlags.NonPublic | BindingFlags.Instance);
-            if (nodesField != null && typeof(IList).IsAssignableFrom(nodesField.FieldType))
-            {
-                IList sourceList = nodesField.GetValue(source) as IList;
-                IList newList = (IList)Activator.CreateInstance(nodesField.FieldType);
-                if (sourceList != null)
-                {
-                    foreach (object child in sourceList)
-                    {
-                        newList.Add(DeepClone(child));
-                    }
-                }
-                nodesField.SetValue(clone, newList);
-            }
-
-            return clone;
         }
 
         private void AddChild(SerializedObject so, string groupPath, Type type)

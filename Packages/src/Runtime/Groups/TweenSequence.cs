@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using UnityEngine;
 
 namespace Nano3.TweenAnimator
 {
@@ -9,33 +7,16 @@ namespace Nano3.TweenAnimator
     /// one completes. Orchestrated via completion callbacks (no coroutines).
     /// </summary>
     [Serializable]
-    public class TweenSequence : TweenNode
+    public class TweenSequence : TweenGroup
     {
-        [SerializeReference] protected List<TweenNode> _nodes = new List<TweenNode>();
-
-        public override void SetUnscaledTime(bool value)
+        public override float GetDuration()
         {
-            base.SetUnscaledTime(value);
+            float total = 0f;
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].SetUnscaledTime(value);
+                if (_nodes[i] != null) { total += _nodes[i].GetDuration(); }
             }
-        }
-
-        public override void SetPaused(bool paused)
-        {
-            for (int i = 0; i < _nodes.Count; i++)
-            {
-                _nodes[i].SetPaused(paused);
-            }
-        }
-
-        public override void Init()
-        {
-            for (int i = 0; i < _nodes.Count; i++)
-            {
-                _nodes[i].Init();
-            }
+            return total;
         }
 
         public override void Play(Action onComplete = null)
@@ -57,42 +38,13 @@ namespace Nano3.TweenAnimator
                 return;
             }
 
+            if (_nodes[index] == null)
+            {
+                PlayFrom(index + 1, onComplete);
+                return;
+            }
+
             _nodes[index].Play(() => PlayFrom(index + 1, onComplete));
-        }
-
-        private void Complete(Action onComplete)
-        {
-            _state = TweenState.Complete;
-            onComplete?.Invoke();
-        }
-
-        public override void SetFinishState(Action onComplete = null)
-        {
-            for (int i = 0; i < _nodes.Count; i++)
-            {
-                _nodes[i].SetFinishState();
-            }
-
-            _state = TweenState.Complete;
-            onComplete?.Invoke();
-        }
-
-        public override void Stop()
-        {
-            _state = TweenState.Stop;
-            for (int i = _nodes.Count - 1; i >= 0; i--)
-            {
-                _nodes[i].Stop();
-            }
-        }
-
-        public override void Reset()
-        {
-            _state = TweenState.Stop;
-            for (int i = _nodes.Count - 1; i >= 0; i--)
-            {
-                _nodes[i].Reset();
-            }
         }
     }
 }

@@ -15,7 +15,8 @@ namespace Nano3.TweenAnimator
     public class TweenNodeDrawer : PropertyDrawer
     {
         private const float Spacing = 2f;
-        private const string StateFieldName = "_state";
+        private const string InstantFieldName = "_instant";
+        private const string TweenFieldName = "_tween";
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
@@ -40,7 +41,14 @@ namespace Nano3.TweenAnimator
                 position.width - EditorGUIUtility.labelWidth,
                 line);
 
-            if (GUI.Button(dropdownRect, GetCurrentTypeLabel(property), EditorStyles.popup))
+            if (hasValue)
+            {
+                // The type is fixed once created — changing it in place silently drops the
+                // node's data (and any children), so we only show it as a label. Recreate the
+                // node to use a different type.
+                EditorGUI.LabelField(dropdownRect, GetCurrentTypeLabel(property));
+            }
+            else if (GUI.Button(dropdownRect, GetCurrentTypeLabel(property), EditorStyles.popup))
             {
                 ShowTypeMenu(property);
             }
@@ -81,6 +89,9 @@ namespace Nano3.TweenAnimator
 
         private static IEnumerable<SerializedProperty> EnumerateChildren(SerializedProperty property)
         {
+            SerializedProperty instant = property.FindPropertyRelative(InstantFieldName);
+            bool hideTiming = instant != null && instant.boolValue;
+
             SerializedProperty iterator = property.Copy();
             SerializedProperty end = iterator.GetEndProperty();
 
@@ -88,7 +99,7 @@ namespace Nano3.TweenAnimator
             while (iterator.NextVisible(enterChildren) && !SerializedProperty.EqualContents(iterator, end))
             {
                 enterChildren = false;
-                if (iterator.name == StateFieldName) { continue; }
+                if (hideTiming && iterator.name == TweenFieldName) { continue; } // Instant ignores timing params
                 yield return iterator.Copy();
             }
         }
@@ -106,7 +117,8 @@ namespace Nano3.TweenAnimator
             SerializedObject serializedObject = property.serializedObject;
             string path = property.propertyPath;
 
-            TweenNodeTypeMenu.Show(true, type => AssignType(serializedObject, path, type));
+            // Only reachable when the field is empty, so no "(None)" entry is needed.
+            TweenNodeTypeMenu.Show(false, type => AssignType(serializedObject, path, type));
         }
 
         private static void AssignType(SerializedObject serializedObject, string path, Type type)

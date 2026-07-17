@@ -2,14 +2,15 @@ using UnityEngine;
 using Nano3.TweenAnimator;
 
 /// <summary>
-/// Minimal example: drives a TweenPlayer from the keyboard.
-///   Q     - play (restarts from the beginning)
-///   E     - stop
+/// Minimal example: drives one named clip of a TweenPlayer from the keyboard.
+///   Q     - play the clip (restarts from the beginning)
+///   E     - stop it
 ///   Space - toggle pause / resume
 /// </summary>
 public class TweenPlayerExample : MonoBehaviour
 {
     [SerializeField] private TweenPlayer _player;
+    [SerializeField] private string _clipName = "Open";
 
     private void Update()
     {
@@ -17,24 +18,29 @@ public class TweenPlayerExample : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Q))
         {
-            _player.ResetAnimation();
-            _player.Play(OnComplete);
+            _player.ResetAnimation(_clipName);
+            _player.Play(_clipName, OnComplete, OnStepComplete);
         }
 
         if (Input.GetKeyDown(KeyCode.E))
         {
-            _player.Stop();
+            _player.Stop(_clipName);
         }
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            if (_player.IsPaused) { _player.Resume(); }
-            else { _player.Pause(); }
+            if (_player.IsPaused(_clipName)) { _player.Resume(_clipName); }
+            else { _player.Pause(_clipName); }
         }
     }
 
     private void OnComplete()
     {
-        Debug.Log("Tween complete");
+        Debug.Log($"Tween clip '{_clipName}' complete");
+    }
+
+    private void OnStepComplete()
+    {
+        Debug.Log($"Tween clip '{_clipName}' step complete (each pass / loop cycle)");
     }
 }

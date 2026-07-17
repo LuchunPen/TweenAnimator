@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Nano3.TweenAnimator
@@ -9,35 +8,18 @@ namespace Nano3.TweenAnimator
     /// Orchestrated via a completion counter (no coroutines).
     /// </summary>
     [Serializable]
-    public class TweenParallel : TweenNode
+    public class TweenParallel : TweenGroup
     {
-        [SerializeReference] protected List<TweenNode> _nodes = new List<TweenNode>();
-
         private int _remaining;
 
-        public override void SetUnscaledTime(bool value)
+        public override float GetDuration()
         {
-            base.SetUnscaledTime(value);
+            float max = 0f;
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].SetUnscaledTime(value);
+                if (_nodes[i] != null) { max = Mathf.Max(max, _nodes[i].GetDuration()); }
             }
-        }
-
-        public override void SetPaused(bool paused)
-        {
-            for (int i = 0; i < _nodes.Count; i++)
-            {
-                _nodes[i].SetPaused(paused);
-            }
-        }
-
-        public override void Init()
-        {
-            for (int i = 0; i < _nodes.Count; i++)
-            {
-                _nodes[i].Init();
-            }
+            return max;
         }
 
         public override void Play(Action onComplete = null)
@@ -46,16 +28,22 @@ namespace Nano3.TweenAnimator
 
             _state = TweenState.Play;
 
-            if (_nodes.Count == 0)
+            int alive = 0;
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                if (_nodes[i] != null) { alive++; }
+            }
+
+            if (alive == 0)
             {
                 Complete(onComplete);
                 return;
             }
 
-            _remaining = _nodes.Count;
+            _remaining = alive;
             for (int i = 0; i < _nodes.Count; i++)
             {
-                _nodes[i].Play(() => OnChildComplete(onComplete));
+                _nodes[i]?.Play(() => OnChildComplete(onComplete));
             }
         }
 
@@ -68,41 +56,6 @@ namespace Nano3.TweenAnimator
             if (_remaining <= 0)
             {
                 Complete(onComplete);
-            }
-        }
-
-        private void Complete(Action onComplete)
-        {
-            _state = TweenState.Complete;
-            onComplete?.Invoke();
-        }
-
-        public override void SetFinishState(Action onComplete = null)
-        {
-            for (int i = 0; i < _nodes.Count; i++)
-            {
-                _nodes[i].SetFinishState();
-            }
-
-            _state = TweenState.Complete;
-            onComplete?.Invoke();
-        }
-
-        public override void Stop()
-        {
-            _state = TweenState.Stop;
-            for (int i = 0; i < _nodes.Count; i++)
-            {
-                _nodes[i].Stop();
-            }
-        }
-
-        public override void Reset()
-        {
-            _state = TweenState.Stop;
-            for (int i = 0; i < _nodes.Count; i++)
-            {
-                _nodes[i].Reset();
             }
         }
     }

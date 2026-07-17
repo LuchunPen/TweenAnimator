@@ -11,7 +11,10 @@ namespace Nano3.TweenAnimator
     [Serializable]
     public abstract class TweenNode
     {
-        [SerializeField] protected TweenState _state;
+        // Runtime-only: the play state is meaningless on disk and must not be cloned or
+        // saved (a freshly loaded/duplicated node always starts Stopped). The editor reads
+        // it from the live object, never via SerializedProperty.
+        [NonSerialized] protected TweenState _state;
         public TweenState State { get { return _state; } }
 
         [Tooltip("Optional custom name shown in the tree editor. Falls back to the type name when empty.")]
@@ -43,6 +46,9 @@ namespace Nano3.TweenAnimator
         /// Groups forward this to their children. Override to cache initial values.
         /// </summary>
         public virtual void Init() { }
+
+        /// <summary>Duration of one pass in seconds (leaf: delay+duration; group: sum/max of children).</summary>
+        public virtual float GetDuration() { return 0f; }
 
         /// <summary>Start playing; <paramref name="onComplete"/> fires when this node finishes.</summary>
         public abstract void Play(Action onComplete = null);

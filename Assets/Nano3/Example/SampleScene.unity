@@ -248,73 +248,256 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7827914c7c069bd4ba8d710c5af5c01c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _root:
-    rid: 6644129221533237248
-  _playOnStart: 0
-  _useUnscaledTime: 0
-  _loopMode: 0
-  _loops: -1
+  _clips:
+  - _name: Show
+    _root:
+      rid: 6644129238815342614
+    _playOnStart: 0
+    _useUnscaledTime: 0
+    _loopMode: 0
+    _loops: -1
+  - _name: Hide
+    _root:
+      rid: 6644129238815342618
+    _playOnStart: 0
+    _useUnscaledTime: 0
+    _loopMode: 0
+    _loops: -1
   references:
     version: 2
     RefIds:
-    - rid: 6644129221533237248
-      type: {class: TweenSequence, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
-      data:
-        _state: 0
-        _name: Root
-        _nodes:
-        - rid: 6644129221533237250
-        - rid: 6644129221533237253
-    - rid: 6644129221533237250
+    - rid: 6644129238815342614
       type: {class: TweenParallel, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
-        _name: 
+        _name: Appearing
         _nodes:
-        - rid: 6644129221533237251
-        - rid: 6644129221533237252
-    - rid: 6644129221533237251
+        - rid: 6644129238815342643
+        - rid: 6644129238815342615
+        - rid: 6644129238815342616
+        - rid: 6644129238815342617
+    - rid: 6644129238815342615
+      type: {class: TweenMoveToPosition, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: Move_Panel_1
+        _instant: 0
+        _tween:
+          _delay: 0
+          _duration: 0.7
+          _ease: 7
+          _amplitude: 1.7
+          _period: 0
+        _trans: {fileID: 1600289227}
+        _startPosition: {x: -300, y: 50}
+        _endPosition: {x: -100, y: 50}
+    - rid: 6644129238815342616
+      type: {class: TweenMoveToPosition, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: Move_Panel_2
+        _instant: 0
+        _tween:
+          _delay: 0.2
+          _duration: 0.7
+          _ease: 7
+          _amplitude: 1.7
+          _period: 0
+        _trans: {fileID: 1076931631}
+        _startPosition: {x: 300, y: 50}
+        _endPosition: {x: 100, y: 50}
+    - rid: 6644129238815342617
+      type: {class: TweenMoveToPosition, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: Move_Panel_3
+        _instant: 0
+        _tween:
+          _delay: 0.4
+          _duration: 0.7
+          _ease: 7
+          _amplitude: 1.7
+          _period: 0
+        _trans: {fileID: 2069262424}
+        _startPosition: {x: 0, y: -300}
+        _endPosition: {x: 0, y: -100}
+    - rid: 6644129238815342618
+      type: {class: TweenParallel, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: Hide_Root
+        _nodes:
+        - rid: 6644129238815342619
+        - rid: 6644129238815342622
+        - rid: 6644129238815342625
+    - rid: 6644129238815342619
+      type: {class: TweenParallel, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: Fade_Panel_1
+        _nodes:
+        - rid: 6644129238815342620
+        - rid: 6644129238815342621
+    - rid: 6644129238815342620
+      type: {class: TweenAlpha, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: FadeOut
+        _instant: 0
+        _tween:
+          _delay: 0
+          _duration: 0.7
+          _ease: 1
+          _amplitude: 1.7
+          _period: 0
+        _cg: {fileID: 1600289230}
+        _startValue: 1
+        _endValue: 0
+    - rid: 6644129238815342621
       type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
-        _name: ScalePanel_1
+        _name: ScaleDown
+        _instant: 0
         _tween:
           _delay: 0
-          _duration: 0.75
+          _duration: 0.7
           _ease: 1
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 1600289227}
         _startValue: 1
         _endValue: 0.5
-    - rid: 6644129221533237252
+    - rid: 6644129238815342622
+      type: {class: TweenParallel, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: Fade_Panel_2
+        _nodes:
+        - rid: 6644129238815342623
+        - rid: 6644129238815342624
+    - rid: 6644129238815342623
+      type: {class: TweenAlpha, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: FadeOut
+        _instant: 0
+        _tween:
+          _delay: 0
+          _duration: 0.7
+          _ease: 1
+          _amplitude: 1.7
+          _period: 0
+        _cg: {fileID: 1076931634}
+        _startValue: 1
+        _endValue: 0
+    - rid: 6644129238815342624
       type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
-        _name: ScalePanel_2
+        _name: ScaleUp
+        _instant: 0
         _tween:
           _delay: 0
-          _duration: 1.5
+          _duration: 0.7
           _ease: 1
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 1076931631}
         _startValue: 1
-        _endValue: 0.6
-    - rid: 6644129221533237253
+        _endValue: 2
+    - rid: 6644129238815342625
+      type: {class: TweenParallel, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: Fade_Panel_3
+        _nodes:
+        - rid: 6644129238815342627
+        - rid: 6644129238815342628
+    - rid: 6644129238815342627
       type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
       data:
         _state: 0
-        _name: ScalePanel_3
+        _name: ScaleDownBubble
+        _instant: 0
         _tween:
           _delay: 0
-          _duration: 1
-          _ease: 24
+          _duration: 0.7
+          _ease: 23
           _amplitude: 1.7
           _period: 0
         _trans: {fileID: 2069262424}
         _startValue: 1
-        _endValue: 1.25
+        _endValue: 0.5
+    - rid: 6644129238815342628
+      type: {class: TweenAlpha, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: FadeOut
+        _instant: 0
+        _tween:
+          _delay: 0
+          _duration: 0.7
+          _ease: 1
+          _amplitude: 1.7
+          _period: 0
+        _cg: {fileID: 2069262427}
+        _startValue: 1
+        _endValue: 0
+    - rid: 6644129238815342643
+      type: {class: TweenParallel, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: StartStates
+        _nodes:
+        - rid: 6644129238815342644
+        - rid: 6644129238815342645
+        - rid: 6644129238815342646
+    - rid: 6644129238815342644
+      type: {class: TweenAlpha, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: SetAlpha_P1
+        _instant: 1
+        _tween:
+          _delay: 0
+          _duration: 1
+          _ease: 1
+          _amplitude: 1.7
+          _period: 0
+        _cg: {fileID: 1600289230}
+        _startValue: 1
+        _endValue: 1
+    - rid: 6644129238815342645
+      type: {class: TweenAlpha, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: SetAlpha_P2
+        _instant: 1
+        _tween:
+          _delay: 0
+          _duration: 1
+          _ease: 1
+          _amplitude: 1.7
+          _period: 0
+        _cg: {fileID: 1076931634}
+        _startValue: 1
+        _endValue: 1
+    - rid: 6644129238815342646
+      type: {class: TweenAlpha, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
+      data:
+        _state: 0
+        _name: SetAlpha_P3
+        _instant: 1
+        _tween:
+          _delay: 0
+          _duration: 1
+          _ease: 1
+          _amplitude: 1.7
+          _period: 0
+        _cg: {fileID: 2069262427}
+        _startValue: 1
+        _endValue: 1
 --- !u!1 &495098528
 GameObject:
   m_ObjectHideFlags: 0
@@ -489,6 +672,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _player: {fileID: 2138986336}
+  _clipName: Open
 --- !u!1 &1076931630
 GameObject:
   m_ObjectHideFlags: 0
@@ -500,6 +684,7 @@ GameObject:
   - component: {fileID: 1076931631}
   - component: {fileID: 1076931633}
   - component: {fileID: 1076931632}
+  - component: {fileID: 1076931634}
   m_Layer: 5
   m_Name: Panel_2
   m_TagString: Untagged
@@ -564,6 +749,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1076931630}
   m_CullTransparentMesh: 1
+--- !u!225 &1076931634
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1076931630}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &1579643942
 GameObject:
   m_ObjectHideFlags: 0
@@ -678,6 +875,7 @@ GameObject:
   - component: {fileID: 1600289227}
   - component: {fileID: 1600289229}
   - component: {fileID: 1600289228}
+  - component: {fileID: 1600289230}
   m_Layer: 5
   m_Name: Panel_1
   m_TagString: Untagged
@@ -742,6 +940,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1600289226}
   m_CullTransparentMesh: 1
+--- !u!225 &1600289230
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1600289226}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &2069262423
 GameObject:
   m_ObjectHideFlags: 0
@@ -753,6 +963,7 @@ GameObject:
   - component: {fileID: 2069262424}
   - component: {fileID: 2069262426}
   - component: {fileID: 2069262425}
+  - component: {fileID: 2069262427}
   m_Layer: 5
   m_Name: Panel_3
   m_TagString: Untagged
@@ -817,6 +1028,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2069262423}
   m_CullTransparentMesh: 1
+--- !u!225 &2069262427
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2069262423}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &2138986334
 GameObject:
   m_ObjectHideFlags: 0
@@ -866,66 +1089,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7827914c7c069bd4ba8d710c5af5c01c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _root:
-    rid: 6644129221533237254
-  _playOnStart: 0
-  _useUnscaledTime: 0
-  _loopMode: 1
-  _loops: -1
+  _clips: []
   references:
     version: 2
-    RefIds:
-    - rid: 6644129221533237254
-      type: {class: TweenSequence, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
-      data:
-        _state: 0
-        _name: 
-        _nodes:
-        - rid: 6644129221533237256
-        - rid: 6644129221533237257
-        - rid: 6644129221533237258
-    - rid: 6644129221533237256
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
-      data:
-        _state: 0
-        _name: ScaleDown
-        _tween:
-          _delay: 0
-          _duration: 0.5
-          _ease: 2
-          _amplitude: 1.7
-          _period: 0
-        _trans: {fileID: 60932492}
-        _startValue: 1
-        _endValue: 0.5
-    - rid: 6644129221533237257
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
-      data:
-        _state: 0
-        _name: ScaleUp
-        _tween:
-          _delay: 0
-          _duration: 0.5
-          _ease: 3
-          _amplitude: 1.7
-          _period: 0
-        _trans: {fileID: 60932492}
-        _startValue: 0.5
-        _endValue: 1
-    - rid: 6644129221533237258
-      type: {class: TweenScale, ns: Nano3.TweenAnimator, asm: Nano3.TweenAnimator}
-      data:
-        _state: 0
-        _name: Delay
-        _tween:
-          _delay: 1
-          _duration: 1
-          _ease: 1
-          _amplitude: 1.7
-          _period: 0
-        _trans: {fileID: 60932492}
-        _startValue: 1
-        _endValue: 1
+    RefIds: []
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

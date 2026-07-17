@@ -15,7 +15,6 @@ namespace Nano3.TweenAnimator
     public class TweenNodeDrawer : PropertyDrawer
     {
         private const float Spacing = 2f;
-        private const string StateFieldName = "_state";
         private const string InstantFieldName = "_instant";
         private const string TweenFieldName = "_tween";
 
@@ -100,7 +99,6 @@ namespace Nano3.TweenAnimator
             while (iterator.NextVisible(enterChildren) && !SerializedProperty.EqualContents(iterator, end))
             {
                 enterChildren = false;
-                if (iterator.name == StateFieldName) { continue; }
                 if (hideTiming && iterator.name == TweenFieldName) { continue; } // Instant ignores timing params
                 yield return iterator.Copy();
             }

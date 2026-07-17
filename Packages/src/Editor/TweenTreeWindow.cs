@@ -16,7 +16,6 @@ namespace Nano3.TweenAnimator
     public class TweenTreeWindow : EditorWindow
     {
         private const string NodesPropName = "_nodes";
-        private const string StatePropName = "_state";
         private const string PlayOnStartPropName = "_playOnStart";
         private const string UnscaledTimePropName = "_useUnscaledTime";
         private const string LoopModePropName = "_loopMode";
@@ -26,8 +25,6 @@ namespace Nano3.TweenAnimator
         private const string NameFieldName = "_name";
         private const string TweenFieldName = "_tween";
         private const string InstantFieldName = "_instant";
-        private const string DurationFieldName = "_duration";
-        private const string DelayFieldName = "_delay";
         private const string DragDataKey = "TweenTreeNodeDrag";
         private const string RenameControlName = "TweenRenameField";
         private const float IndentWidth = 14f;
@@ -1401,44 +1398,19 @@ namespace Nano3.TweenAnimator
         }
 
         /// <summary>
-        /// Duration of one pass: a leaf is Delay + Duration; a Sequence sums its children; a
-        /// Parallel takes the longest child. Computed recursively up the tree.
+        /// Duration of one pass, read from the live node so it matches the runtime exactly
+        /// (leaf = Delay + Duration; Sequence sums; Parallel takes the longest; custom groups
+        /// use their own override). Returns 0 for a null or momentarily stale reference — the
+        /// SerializedObject is rebuilt after every structural edit and undo, so the live value
+        /// is authoritative and a stale frame self-corrects on the next repaint.
         /// </summary>
         private static float GetNodeDuration(SerializedProperty nodeProp)
         {
-            if (nodeProp == null) { return 0f; }
-
-            // Prefer the live object: its virtual GetDuration matches the runtime exactly,
-            // including custom group subclasses. The serialized walk below is only a fallback
-            // for a momentarily stale managed reference.
-            if (nodeProp.managedReferenceValue is TweenNode node) { return node.GetDuration(); }
-
-            if (string.IsNullOrEmpty(nodeProp.managedReferenceFullTypename)) { return 0f; }
-
-            SerializedProperty nodes = nodeProp.FindPropertyRelative(NodesPropName);
-            if (nodes != null)
+            if (nodeProp != null && nodeProp.managedReferenceValue is TweenNode node)
             {
-                bool parallel = nodeProp.managedReferenceFullTypename.EndsWith("TweenParallel");
-                float total = 0f;
-                for (int i = 0; i < nodes.arraySize; i++)
-                {
-                    float child = GetNodeDuration(nodes.GetArrayElementAtIndex(i));
-                    total = parallel ? Mathf.Max(total, child) : total + child;
-                }
-                return total;
+                return node.GetDuration();
             }
-
-            SerializedProperty instant = nodeProp.FindPropertyRelative(InstantFieldName);
-            if (instant != null && instant.boolValue) { return 0f; }
-
-            SerializedProperty tween = nodeProp.FindPropertyRelative(TweenFieldName);
-            if (tween == null) { return 0f; }
-
-            SerializedProperty delay = tween.FindPropertyRelative(DelayFieldName);
-            SerializedProperty duration = tween.FindPropertyRelative(DurationFieldName);
-            float delayValue = delay != null ? delay.floatValue : 0f;
-            float durationValue = duration != null ? duration.floatValue : 0f;
-            return delayValue + durationValue;
+            return 0f;
         }
 
         private static IEnumerable<SerializedProperty> EnumerateEditableChildren(SerializedProperty property)
@@ -1450,7 +1422,6 @@ namespace Nano3.TweenAnimator
             while (iterator.NextVisible(enterChildren) && !SerializedProperty.EqualContents(iterator, end))
             {
                 enterChildren = false;
-                if (iterator.name == StatePropName) { continue; }
                 if (iterator.name == NodesPropName) { continue; }
                 if (iterator.name == NameFieldName) { continue; } // shown as a dedicated Name field
                 yield return iterator.Copy();

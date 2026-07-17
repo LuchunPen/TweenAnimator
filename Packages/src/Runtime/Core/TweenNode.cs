@@ -11,7 +11,10 @@ namespace Nano3.TweenAnimator
     [Serializable]
     public abstract class TweenNode
     {
-        [SerializeField] protected TweenState _state;
+        // Runtime-only: the play state is meaningless on disk and must not be cloned or
+        // saved (a freshly loaded/duplicated node always starts Stopped). The editor reads
+        // it from the live object, never via SerializedProperty.
+        [NonSerialized] protected TweenState _state;
         public TweenState State { get { return _state; } }
 
         [Tooltip("Optional custom name shown in the tree editor. Falls back to the type name when empty.")]

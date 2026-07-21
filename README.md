@@ -40,7 +40,7 @@ and plays them by name.
 3. Enter:
 
    ```
-   https://github.com/LuchunPen/TweenAnimator.git?path=Packages/src
+   https://github.com/LuchunPen/NanoTweenAnimator.git?path=Packages/src
    ```
 
 DOTween must be present in the project separately (Asset Store or DOTween's own

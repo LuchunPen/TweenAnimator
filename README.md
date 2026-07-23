@@ -1,4 +1,4 @@
-# Tween Animator
+# NanoTweenAnimator
 
 A DOTween-based animation tool for Unity, designed mainly for UI. Build complex,
 nested animations from a single component and a visual tree editor — no more piling

@@ -1,5 +1,5 @@
 {
-  "name": "com.luchunpen.tweenanimator",
+  "name": "com.nano3.tweenanimator",
   "displayName": "Tween Animator",
   "description": "DOTween-based UI animation tool: build nested tween trees (Sequence/Parallel) from a single component and a visual tree editor. Requires DOTween in the project.",
   "version": "2.1.0",
@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LuchunPen/TweenAnimator.git"
+    "url": "https://github.com/LuchunPen/NanoTweenAnimator.git"
   },
   "author": {
     "name": "Luchunpen",

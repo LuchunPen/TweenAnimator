@@ -1,6 +1,6 @@
 {
-  "name": "com.nano3.tweenanimator",
-  "displayName": "Tween Animator",
+  "name": "com.luchunpen.nanotweenanimator",
+  "displayName": "NanoTweenAnimator",
   "description": "DOTween-based UI animation tool: build nested tween trees (Sequence/Parallel) from a single component and a visual tree editor. Requires DOTween in the project.",
   "version": "2.1.0",
   "unity": "2022.3",
@@ -10,7 +10,7 @@
     "url": "https://github.com/LuchunPen/NanoTweenAnimator.git"
   },
   "author": {
-    "name": "Nano3",
+    "name": "Luchunpen",
     "email": "wbuilder88@gmail.com",
     "url": "https://github.com/LuchunPen/"
   },
